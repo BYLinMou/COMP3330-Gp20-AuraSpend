@@ -1,3 +1,68 @@
+# AuraSpend - Smart Budgeting Companion
+
+**HKU COMP3330 (25-26 Sem 1) - Group 20**
+
+AuraSpend is a gamified, AI-powered expense tracking application built with React Native (Expo) and Supabase. It combines financial management with a digital pet companion to encourage healthy spending habits.
+
+## 👥 Group Members
+
+- **Xie Yee Lam**
+- **Chen Yifan**
+- **Zeng Ruo Xi**
+
+---
+
+## ✨ Key Features
+
+### 💰 Smart Finance Management
+- **Multi-Currency Support**: Real-time currency conversion powered by Frankfurter API (Supports HKD, USD, CNY, JPY, etc.).
+- **AI Receipt Scanning**: Upload or take photos of receipts. The app uses multimodal LLMs (OpenAI/Gemini) to automatically extract merchant, items, amount, and categories.
+- **Budget Tracking**: Set monthly or yearly budgets with visual progress bars and alerts.
+- **Detailed Reports**: Interactive charts showing spending trends, category breakdowns, and merchant summaries.
+
+### 🐾 Gamification (Pet System)
+- **Digital Companion**: Your financial habits affect your pet's mood and hunger.
+- **Level Up**: Gain XP by logging transactions and staying within budget.
+- **Rewards**: Unlock outfits and new pets as you progress.
+
+### 🤖 AI Assistant
+- **Floating Chat**: An integrated AI assistant that can answer questions about your spending, summarize data, and perform actions via natural language (e.g., "How much did I spend on food last week?").
+
+### 🛠 Technical Highlights
+- **Real-time Sync**: Data synchronizes instantly across devices using Supabase Realtime.
+- **Offline Support**: Built-in caching for currencies and essential data.
+- **Customizable**: Support for dark mode, custom categories, and multiple languages (English/Chinese).
+
+---
+
+## 🏗 Tech Stack
+
+- **Frontend**: React Native, Expo, Expo Router, Reanimated
+- **Backend**: Supabase (PostgreSQL, Auth, Realtime, Storage)
+- **AI Integration**: OpenAI, Gemini API
+- **Language**: TypeScript
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (LTS version recommended, e.g., >= 20)
+- npm or yarn
+- Expo Go app on your mobile device or an Android/iOS Simulator
+
+### 1. Clone and Install
+
+```bash
+# Clone the repository
+git clone [https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend.git](https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend.git)
+
+# Navigate to project folder
+cd COMP3330-Gp20-AuraSpend
+
+# Install dependencies
+npm install
+
 # Project Introduction
 
 This project is developed for **HKU COMP3330 25-26 sem 1, Group 20**.
@@ -9,44 +74,3 @@ This project is developed for **HKU COMP3330 25-26 sem 1, Group 20**.
 - Zeng Ruo Xi
 
 ## Project Overview
-
-AuraSpend is a money-management app built with Expo (React Native + Expo Router) and Supabase as the backend. Key features include multi-currency support, AI-assisted receipt parsing (external tool), budgets, and analytics.
-
-## Quick setup
-
-1. Install Node (recommended >= 20.19.4). Use nvm or Volta to manage versions.
-
-	Example (nvm):
-
-	```bash
-	curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
-	export NVM_DIR="$HOME/.nvm"
-	[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-	nvm install 20.19.4
-	nvm use 20.19.4
-	node -v
-	```
-
-2. Copy `.env.example` to `.env` and fill in your Supabase values (do NOT commit `.env`):
-
-	```text
-	EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-	EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-	```
-
-3. Install dependencies and start Expo:
-
-	```bash
-	npm install
-	npm run start
-	```
-
-4. Use the Expo DevTools or the terminal shortcuts to open iOS/Android simulators or web.
-
-## Notes for contributors
-
-- The auth gating logic lives in `app/_layout.tsx` and relies on `useAuth()` from `src/providers/AuthProvider.tsx`.
-- Supabase client is implemented in `src/services/supabase.ts` and reads env vars from `app.config.js` via `expo-constants.extra`.
-- `TestTools/ReceiptSmartAnalyzer` is a separate Python tool for OCR and is not required to run the mobile app.
-
-This README is a work in progress.
