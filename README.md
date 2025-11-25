@@ -60,17 +60,10 @@ git clone [https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend.git](https://gith
 # Navigate to project folder
 cd COMP3330-Gp20-AuraSpend
 
+cp .env.example .env
+
 # Install dependencies
 npm install
 
-# Project Introduction
-
-This project is developed for **HKU COMP3330 25-26 sem 1, Group 20**.
-
-## Group Members
-
-- Xie Yee Lam
-- Chen Yifan
-- Zeng Ruo Xi
-
-## Project Overview
+#Start Project
+npm run start
