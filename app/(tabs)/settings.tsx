@@ -648,7 +648,7 @@ export default function SettingsScreen() {
               >
                 <Text style={selectedCurrency ? styles.selectText : styles.selectPlaceholder}>
                   {selectedCurrency 
-                    ? `${currencyOptions.find(c => c.code === selectedCurrency)?.symbol} ${selectedCurrency}`
+                    ? `${currencyOptions.find(c => c.code === selectedCurrency)?.symbol}  ${selectedCurrency}`
                     : 'Select currency'}
                 </Text>
                 <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />

@@ -11,10 +11,8 @@ import {
 } from '../../src/services/transactions';
 import { 
   getMonthlyTrends, 
-  getWeeklySpending, 
   getSpendingSummary,
   type MonthlyTrend,
-  type WeeklySpending,
 } from '../../src/services/reports';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { useCurrency } from '../../src/providers/CurrencyProvider';
@@ -26,7 +24,7 @@ const CHART_HEIGHT = 160;
 const VERTICAL_PADDING_BOTTOM = 10; // 20% of 160
 
 type TabType = 'trends' | 'compare' | 'merchants' | 'search' | 'breakdown';
-type PeriodType = 'month' | 'week';
+type PeriodType = 'month' | 'week' | 'year';
 
 type ChartPoint = {
   x: number;
@@ -50,8 +48,10 @@ export default function ReportsScreen() {
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
-  const [weeklyData, setWeeklyData] = useState<WeeklySpending[]>([]);
   const [chartWidth, setChartWidth] = useState(0);
+  
+  // Add a ref to track if we're currently loading to prevent duplicate requests
+  const loadingRef = React.useRef(false);
 
   // Calculate maxValue from monthlyTrends dynamically
   const rawMax = monthlyTrends.length > 0 
@@ -137,10 +137,16 @@ export default function ReportsScreen() {
     if (session) {
       loadAllData();
     }
-  }, [session, period]);
+  }, [session, period, activeTab]); // Also reload when switching tabs
 
   async function loadAllData() {
+    // Prevent duplicate loading requests
+    if (loadingRef.current) {
+      return;
+    }
+    
     try {
+      loadingRef.current = true;
       setLoading(true);
       
       // Get date range based on selected period
@@ -149,26 +155,43 @@ export default function ReportsScreen() {
       let endDate: string;
 
       if (period === 'week') {
-        // Get current week (last 7 days)
+        // Get current week (last 7 days) - include full day today
         const weekAgo = new Date(now);
         weekAgo.setDate(now.getDate() - 6);
-        startDate = weekAgo.toISOString().split('T')[0];
-        endDate = now.toISOString().split('T')[0];
+        weekAgo.setHours(0, 0, 0, 0);
+        startDate = weekAgo.toISOString();
+        // End of today to include all transactions
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+        endDate = endOfDay.toISOString();
+      } else if (period === 'year') {
+        // Get current year - include full year
+        const firstDay = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+        const lastDay = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        startDate = firstDay.toISOString();
+        endDate = lastDay.toISOString();
       } else {
-        // Get current month
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        startDate = firstDay.toISOString().split('T')[0];
-        endDate = lastDay.toISOString().split('T')[0];
+        // Get current month - include full month
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        startDate = firstDay.toISOString();
+        endDate = lastDay.toISOString();
       }
 
-      // Load all data in parallel
-      const [summary, breakdown, trends, weekly] = await Promise.all([
+      // Load data based on active tab to improve performance
+      // Only load what's needed for the current view
+      const dataToLoad: Promise<any>[] = [
         getSpendingSummary(startDate, endDate),
         getSpendingBreakdown(startDate, endDate),
-        getMonthlyTrends(6),
-        getWeeklySpending(),
-      ]);
+      ];
+
+      // Only load trends if on trends tab
+      if (activeTab === 'trends') {
+        dataToLoad.push(getMonthlyTrends(6));
+      }
+
+      const results = await Promise.all(dataToLoad);
+      const [summary, breakdown, trends] = results;
 
       // Update summary
       setTotalIncome(summary.totalIncome);
@@ -197,15 +220,15 @@ export default function ReportsScreen() {
       });
       setSpendingData(chartData);
 
-      // Update trends
-      setMonthlyTrends(trends);
-
-      // Update weekly
-      setWeeklyData(weekly);
+      // Update trends only if loaded
+      if (activeTab === 'trends' && trends) {
+        setMonthlyTrends(trends);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   }
 
@@ -398,8 +421,10 @@ export default function ReportsScreen() {
             <View style={styles.headerRow}>
               <View>
                 <Text style={styles.cardTitle}>Analysis</Text>
-                <Text style={styles.cardSubtitle}>
-                  Income {currencySymbol}{totalIncome.toFixed(2)}
+                <Text style={styles.periodIndicator}>
+                  {period === 'week' && 'Last 7 Days'}
+                  {period === 'month' && 'This Month'}
+                  {period === 'year' && 'This Year'}
                 </Text>
               </View>
               
@@ -422,10 +447,12 @@ export default function ReportsScreen() {
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.periodButton}
-                  onPress={() => {/* TODO: Add year filter */}}
+                  style={[styles.periodButton, period === 'year' && styles.periodButtonActive]}
+                  onPress={() => setPeriod('year')}
                 >
-                  <Text style={styles.periodButtonText}>Yearly</Text>
+                  <Text style={[styles.periodButtonText, period === 'year' && styles.periodButtonTextActive]}>
+                    Yearly
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -826,5 +853,10 @@ const styles = StyleSheet.create({
   pieChartContainer: {
     alignItems: 'center',
     marginBottom: 16,
+  },
+  periodIndicator: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 4,
   },
 });
