@@ -18,6 +18,7 @@ import { getPaymentMethods } from '../../src/services/payment-methods';
 import { getMonthlyBudgetAmount } from '../../src/services/budgets';
 import { getProfile } from '../../src/services/profiles';
 import { useAuth } from '../../src/providers/AuthProvider';
+import { useCurrency } from '../../src/providers/CurrencyProvider';
 import { getItemsByTransaction, type ItemRow, debugGetAllUserItems } from '../../src/services/items';
 
 const { width } = Dimensions.get('window');
@@ -40,10 +41,12 @@ function getRelativeTime(dateString: string): string {
 
 export default function HomeScreen() {
   const { session } = useAuth();
+  const { currencySymbol, currencyCode, convertToUserCurrency } = useCurrency();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [convertedAmounts, setConvertedAmounts] = useState<Record<string, number>>({});
   const [balance, setBalance] = useState(0);
   const [income, setIncome] = useState(0);
   const [spent, setSpent] = useState(0);
@@ -199,6 +202,29 @@ export default function HomeScreen() {
     };
   }, [session]);
 
+  // Convert transaction amounts to user's primary currency
+  async function convertTransactionAmounts(transactions: Transaction[]) {
+    try {
+      const amounts: Record<string, number> = {};
+      
+      // Convert each transaction's amount
+      await Promise.all(
+        transactions.map(async (transaction) => {
+          if (transaction.currency && transaction.currency !== currencyCode) {
+            const result = await convertToUserCurrency(Math.abs(transaction.amount), transaction.currency);
+            amounts[transaction.id] = transaction.amount >= 0 ? result.convertedAmount : -result.convertedAmount;
+          } else {
+            amounts[transaction.id] = transaction.amount;
+          }
+        })
+      );
+      
+      setConvertedAmounts(amounts);
+    } catch (error) {
+      console.error('Failed to convert transaction amounts:', error);
+    }
+  }
+
   async function loadData() {
     try {
       setLoading(true);
@@ -214,7 +240,10 @@ export default function HomeScreen() {
       // Fetch all data in parallel
       const [transactions, stats, monthlyBudget, profile] = await Promise.all([
         getRecentTransactions(transactionLimit),
-        getIncomeAndExpenses(startDate, endDate),
+        getIncomeAndExpenses(startDate, endDate, {
+          convertToUserCurrency,
+          userCurrency: currencyCode,
+        }),
         getMonthlyBudgetAmount(),
         getProfile(),
       ]);
@@ -226,7 +255,10 @@ export default function HomeScreen() {
       // Balance = income - expenses
       setBalance((profile?.income || stats.income) - stats.expenses);
       setBudget(monthlyBudget);
-      
+
+      // Convert transaction amounts to user's currency
+      await convertTransactionAmounts(transactions);
+
       // Debug: 检查所有 items
       try {
         await debugGetAllUserItems();
@@ -254,7 +286,10 @@ export default function HomeScreen() {
       // Fetch all data in parallel
       const [transactions, stats, monthlyBudget, profile] = await Promise.all([
         getRecentTransactions(transactionLimit),
-        getIncomeAndExpenses(startDate, endDate),
+        getIncomeAndExpenses(startDate, endDate, {
+          convertToUserCurrency,
+          userCurrency: currencyCode,
+        }),
         getMonthlyBudgetAmount(),
         getProfile(),
       ]);
@@ -315,15 +350,15 @@ export default function HomeScreen() {
                   <Text style={styles.balanceLabel}>Current Balance</Text>
                   <Ionicons name="wallet-outline" size={24} color={Colors.white} />
                 </View>
-                <Text style={styles.balanceAmount}>${balance.toFixed(2)}</Text>
+                <Text style={styles.balanceAmount}>{currencySymbol}{balance.toFixed(2)}</Text>
                 <View style={styles.balanceFooter}>
                   <View style={styles.balanceItem}>
                     <Ionicons name="trending-up" size={16} color={Colors.white} />
-                    <Text style={styles.balanceItemText}>Income: ${income}</Text>
+                    <Text style={styles.balanceItemText}>Income: {currencySymbol}{income.toFixed(2)}</Text>
                   </View>
                   <View style={styles.balanceItem}>
                     <Ionicons name="trending-down" size={16} color={Colors.white} />
-                    <Text style={styles.balanceItemText}>Spent: ${spent}</Text>
+                    <Text style={styles.balanceItemText}>Spent: {currencySymbol}{spent.toFixed(2)}</Text>
                   </View>
                 </View>
               </LinearGradient>
@@ -395,7 +430,7 @@ export default function HomeScreen() {
                                   balance >= 0 ? styles.paymentMethodPositive : styles.paymentMethodNegative,
                                 ]}
                               >
-                                {balance >= 0 ? '+' : ''}${balance.toFixed(2)}
+                                {balance >= 0 ? '+' : ''}{currencySymbol}{balance.toFixed(2)}
                               </Text>
                             </View>
                           );
@@ -437,8 +472,8 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.budgetInfo}>
-            <Text style={styles.budgetAmount}>${spent} spent</Text>
-            <Text style={styles.budgetAmount}>${budget} budget</Text>
+            <Text style={styles.budgetAmount}>{currencySymbol}{spent.toFixed(2)} spent</Text>
+            <Text style={styles.budgetAmount}>{currencySymbol}{budget.toFixed(2)} budget</Text>
           </View>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${budgetUsed}%` }]} />
@@ -671,7 +706,18 @@ export default function HomeScreen() {
                           }
                         ]}
                       >
-                        {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
+                        {(() => {
+                          const displayAmount = convertedAmounts[transaction.id] ?? transaction.amount;
+                          const showOriginal = transaction.currency && transaction.currency !== currencyCode;
+                          return (
+                            <>
+                              {transaction.amount > 0 ? '+' : ''}{currencySymbol}{Math.abs(displayAmount).toFixed(2)}
+                              {showOriginal && (
+                                <Text style={styles.originalCurrencyHint}> *</Text>
+                              )}
+                            </>
+                          );
+                        })()}
                       </Animated.Text>
                       <Animated.Text style={[
                         styles.transactionCategory,
@@ -1262,5 +1308,10 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  originalCurrencyHint: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    opacity: 0.7,
   },
 });

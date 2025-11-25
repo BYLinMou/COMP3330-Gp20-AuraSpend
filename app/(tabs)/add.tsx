@@ -15,6 +15,7 @@ import { getCurrencies, type Currency } from '../../src/services/currencies';
 import { getPaymentMethods, type PaymentMethod } from '../../src/services/payment-methods';
 import { processReceiptImage, type ReceiptData, type ProcessingProgress } from '../../src/services/receipt-processor';
 import { useAuth } from '../../src/providers/AuthProvider';
+import { useCurrency } from '../../src/providers/CurrencyProvider';
 import { TextInput as GestureTextInput } from 'react-native-gesture-handler';
 
 type InputMethod = 'manual' | 'receipt';
@@ -27,6 +28,7 @@ interface ReceiptItem {
 
 export default function AddScreen() {
   const { session } = useAuth();
+  const { currencyCode: primaryCurrencyCode } = useCurrency();
   const [inputMethod, setInputMethod] = useState<InputMethod>('receipt');
   const [amount, setAmount] = useState('');
   const [itemlist, setItemlist] = useState<ReceiptItem[]>([]);
@@ -139,6 +141,10 @@ export default function AddScreen() {
     try {
       const data = await getCurrencies();
       setCurrencyOptions(data);
+      // Set default currency to user's primary currency
+      if (!selectedCurrency && primaryCurrencyCode) {
+        setSelectedCurrency(primaryCurrencyCode);
+      }
       console.log('[Add] Loaded currencies:', data);
     } catch (error) {
       console.error('Failed to load currencies:', error);
@@ -417,7 +423,7 @@ export default function AddScreen() {
         source,
         note: notes.trim(),
         payment_method: selectedPaymentMethod || null,
-        // items 保存在单独的 items 表中，不在 transactions 表
+        currency: selectedCurrency || 'HKD',
       };
 
       console.log('Saving transaction:', transactionData);
@@ -1136,7 +1142,7 @@ export default function AddScreen() {
                       styles.modalItemText,
                       selectedCurrency === currency.code && styles.modalItemTextSelected
                     ]}>
-                      {currency.symbol} {currency.code}
+                      {currency.symbol}
                     </Text>
                     <Text style={styles.currencySubtext}>{currency.name}</Text>
                   </View>

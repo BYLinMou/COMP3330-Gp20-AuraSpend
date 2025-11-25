@@ -30,6 +30,7 @@ import { getItemsByTransaction, type ItemRow } from '@/src/services/items';
 import { getCategories, type Category } from '@/src/services/categories';
 import { getPaymentMethods, type PaymentMethod } from '@/src/services/payment-methods';
 import { getProfile } from '@/src/services/profiles';
+import { useCurrency } from '@/src/providers/CurrencyProvider';
 
 type FilterType = 'all' | 'income' | 'expense';
 type SourceType = 'all' | 'manual' | 'ocr' | 'ai';
@@ -52,8 +53,10 @@ function getRelativeTime(dateString: string): string {
 
 export default function AllTransactionsScreen() {
   const { session } = useAuth();
+  const { currencySymbol, currencyCode, convertToUserCurrency } = useCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+  const [convertedAmounts, setConvertedAmounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
@@ -91,6 +94,7 @@ export default function AllTransactionsScreen() {
       setLoading(true);
       const data = await getAllTransactions();
       setTransactions(data);
+      await convertTransactionAmounts(data);
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
       Alert.alert('Error', 'Failed to load transactions');
@@ -120,6 +124,25 @@ export default function AllTransactionsScreen() {
       console.error('Failed to fetch profile income:', error);
     }
   };
+
+  async function convertTransactionAmounts(transactions: Transaction[]) {
+    try {
+      const amounts: Record<string, number> = {};
+      await Promise.all(
+        transactions.map(async (transaction) => {
+          if (transaction.currency && transaction.currency !== currencyCode) {
+            const result = await convertToUserCurrency(Math.abs(transaction.amount), transaction.currency);
+            amounts[transaction.id] = transaction.amount >= 0 ? result.convertedAmount : -result.convertedAmount;
+          } else {
+            amounts[transaction.id] = transaction.amount;
+          }
+        })
+      );
+      setConvertedAmounts(amounts);
+    } catch (error) {
+      console.error('Failed to convert transaction amounts:', error);
+    }
+  }
 
   const applyFilters = () => {
     let filtered = [...transactions];
@@ -302,7 +325,18 @@ export default function AllTransactionsScreen() {
                 item.amount > 0 ? styles.incomeAmount : styles.expenseAmount,
               ]}
             >
-              {item.amount > 0 ? '+' : ''}${Math.abs(item.amount).toFixed(2)}
+              {(() => {
+                const displayAmount = convertedAmounts[item.id] ?? item.amount;
+                const showOriginal = item.currency && item.currency !== currencyCode;
+                return (
+                  <>
+                    {item.amount > 0 ? '+' : ''}{currencySymbol}{Math.abs(displayAmount).toFixed(2)}
+                    {showOriginal && (
+                      <Text style={styles.originalCurrencyHint}> *</Text>
+                    )}
+                  </>
+                );
+              })()}
             </Text>
             <Text style={styles.transactionCategory}>
               {item.category?.name || 'Uncategorized'}
@@ -392,7 +426,7 @@ export default function AllTransactionsScreen() {
                           <View style={styles.itemDetailQtyPrice}>
                             <Text style={styles.itemDetailQty}>Qty: {transItem.item_amount}</Text>
                             <Text style={styles.itemDetailPrice}>
-                              ${(transItem.item_price * transItem.item_amount).toFixed(2)}
+                              {currencySymbol}{(transItem.item_price * transItem.item_amount).toFixed(2)}
                             </Text>
                           </View>
                         </View>
@@ -1289,5 +1323,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.white,
+  },
+  originalCurrencyHint: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    opacity: 0.7,
   },
 });

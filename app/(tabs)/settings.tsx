@@ -9,6 +9,7 @@ import { Colors } from '../../constants/theme';
 import { RefreshableScrollView } from '../../components/refreshable-scroll-view';
 import { supabase } from '../../src/services/supabase';
 import { useAuth } from '../../src/providers/AuthProvider';
+import { useCurrency } from '../../src/providers/CurrencyProvider';
 import { 
   saveOpenAIConfig, 
   getOpenAIConfig, 
@@ -61,6 +62,7 @@ import { getProfile, updateProfile } from '../../src/services/profiles';
 
 export default function SettingsScreen() {
   const { session } = useAuth();
+  const { refreshCurrency } = useCurrency();
   
   console.log('SettingsScreen mounted, session:', !!session);
   
@@ -388,6 +390,9 @@ export default function SettingsScreen() {
 
       // Also save budget together for convenience
       await handleSaveBudget();
+
+      // Refresh global currency after profile update
+      await refreshCurrency();
 
       Alert.alert('Success', 'Profile updated successfully');
     } catch (error: any) {
@@ -1567,7 +1572,7 @@ export default function SettingsScreen() {
                       styles.modalItemText,
                       selectedCurrency === currency.code && styles.modalItemTextSelected
                     ]}>
-                      {currency.symbol} {currency.code}
+                      {currency.symbol}
                     </Text>
                     <Text style={styles.currencySubtext}>{currency.name}</Text>
                   </View>

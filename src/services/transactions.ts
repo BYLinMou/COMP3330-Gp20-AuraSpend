@@ -14,6 +14,7 @@ export interface Transaction {
   payment_method: string | null;
   created_at: string;
   updated_at: string;
+  currency: string;
   // Joined data (optional)
   category?: Category;
 }
@@ -206,7 +207,14 @@ export async function getSpendingBreakdown(startDate: string, endDate: string) {
  * Calculate total income and expenses for a date range
  * Uses profile income if set, otherwise uses calculated income from transactions
  */
-export async function getIncomeAndExpenses(startDate: string, endDate: string) {
+export async function getIncomeAndExpenses(
+  startDate: string, 
+  endDate: string,
+  options?: { 
+    convertToUserCurrency?: (amount: number, fromCurrency: string) => Promise<{ convertedAmount: number; rate: number }>;
+    userCurrency?: string;
+  }
+) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -216,7 +224,7 @@ export async function getIncomeAndExpenses(startDate: string, endDate: string) {
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('amount')
+      .select('amount, currency')
       .eq('user_id', user.id)
       .gte('occurred_at', startDate)
       .lte('occurred_at', endDate);
@@ -228,16 +236,39 @@ export async function getIncomeAndExpenses(startDate: string, endDate: string) {
 
     const transactions = data as Transaction[];
     
-    // Calculate income from transactions
-    const transactionIncome = transactions
-      .filter(t => t.amount > 0)
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const expenses = Math.abs(
-      transactions
-        .filter(t => t.amount < 0)
-        .reduce((sum, t) => sum + t.amount, 0)
-    );
+    // Calculate income from transactions (with currency conversion if provided)
+    let transactionIncome = 0;
+    let expenses = 0;
+
+    if (options?.convertToUserCurrency && options?.userCurrency) {
+      // Convert each transaction to user's currency before summing
+      for (const t of transactions) {
+        let convertedAmount = t.amount;
+        
+        // Convert if transaction currency differs from user currency
+        if (t.currency && t.currency !== options.userCurrency) {
+          const result = await options.convertToUserCurrency(Math.abs(t.amount), t.currency);
+          convertedAmount = t.amount >= 0 ? result.convertedAmount : -result.convertedAmount;
+        }
+        
+        if (convertedAmount > 0) {
+          transactionIncome += convertedAmount;
+        } else {
+          expenses += Math.abs(convertedAmount);
+        }
+      }
+    } else {
+      // No conversion - use original amounts
+      transactionIncome = transactions
+        .filter(t => t.amount > 0)
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      expenses = Math.abs(
+        transactions
+          .filter(t => t.amount < 0)
+          .reduce((sum, t) => sum + t.amount, 0)
+      );
+    }
 
     // Get profile income (use this as primary source)
     const profile = await getProfile();

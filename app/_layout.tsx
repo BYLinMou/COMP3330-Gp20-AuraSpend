@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../src/providers/AuthProvider';
+import { CurrencyProvider } from '../src/providers/CurrencyProvider';
 
 function Gate() {
   const { session, loading } = useAuth();
@@ -34,7 +35,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <Gate />
+        <CurrencyProvider>
+          <Gate />
+        </CurrencyProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

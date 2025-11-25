@@ -12,15 +12,23 @@ export interface Currency {
 
 /**
  * Get list of available currencies
- * Currently returns hardcoded list: USD, HKD, CNY
- * TODO: Replace with backend API call or user settings
+ * Returns currencies supported by Frankfurter API for conversion
+ * Symbol is for display only - conversion uses the currency code
  */
 export async function getCurrencies(): Promise<Currency[]> {
-  // Default currency list
+  // All currencies supported by Frankfurter API (based on ECB data)
   const currencies: Currency[] = [
-    { code: 'USD', symbol: '$', name: 'US Dollar' },
-    { code: 'HKD', symbol: '$', name: 'Hong Kong Dollar' },
-    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+    // Only currencies requested (supported by Frankfurter API)
+    { code: 'USD', symbol: 'US$', name: 'US Dollar' },
+    { code: 'EUR', symbol: '€', name: 'Euro' },
+    { code: 'GBP', symbol: '£', name: 'British Pound' },
+    { code: 'JPY', symbol: 'JP¥', name: 'Japanese Yen' },
+    { code: 'CNY', symbol: 'CN¥', name: 'Chinese Yuan' },
+    { code: 'HKD', symbol: 'HK$', name: 'Hong Kong Dollar' },
+    { code: 'AUD', symbol: 'AU$', name: 'Australian Dollar' },
+    { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar' },
+    { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc' },
+    { code: 'SGD', symbol: 'SG$', name: 'Singapore Dollar' },
   ];
 
   return Promise.resolve(currencies);

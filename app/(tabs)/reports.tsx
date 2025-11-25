@@ -17,6 +17,7 @@ import {
   type WeeklySpending,
 } from '../../src/services/reports';
 import { useAuth } from '../../src/providers/AuthProvider';
+import { useCurrency } from '../../src/providers/CurrencyProvider';
 import { PieChart } from 'react-native-chart-kit';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -35,6 +36,7 @@ type ChartPoint = {
 
 export default function ReportsScreen() {
   const { session } = useAuth();
+  const { currencySymbol, currencyCode, convertToUserCurrency } = useCurrency();
   const [activeTab, setActiveTab] = useState<TabType>('trends');
   const [period, setPeriod] = useState<PeriodType>('month');
   const [loading, setLoading] = useState(false);
@@ -229,7 +231,7 @@ export default function ReportsScreen() {
         <View style={styles.summaryCards}>
           <View style={[styles.summaryCard, styles.incomeCard]}>
             <Text style={styles.summaryLabel}>Total Income</Text>
-            <Text style={styles.summaryAmount}>${totalIncome.toFixed(2)}</Text>
+            <Text style={styles.summaryAmount}>{currencySymbol}{totalIncome.toFixed(2)}</Text>
             <View style={styles.trendIcon}>
               <Ionicons name="trending-up" size={24} color={Colors.white} />
             </View>
@@ -237,7 +239,7 @@ export default function ReportsScreen() {
 
           <View style={[styles.summaryCard, styles.spentCard]}>
             <Text style={styles.summaryLabel}>Total Spent</Text>
-            <Text style={styles.summaryAmount}>${totalSpent.toFixed(2)}</Text>
+            <Text style={styles.summaryAmount}>{currencySymbol}{totalSpent.toFixed(2)}</Text>
             <View style={styles.trendIcon}>
               <Ionicons name="trending-down" size={24} color={Colors.white} />
             </View>
@@ -397,7 +399,7 @@ export default function ReportsScreen() {
               <View>
                 <Text style={styles.cardTitle}>Analysis</Text>
                 <Text style={styles.cardSubtitle}>
-                  Income ${totalIncome.toFixed(2)}
+                  Income {currencySymbol}{totalIncome.toFixed(2)}
                 </Text>
               </View>
               
@@ -443,7 +445,7 @@ export default function ReportsScreen() {
                 <View style={styles.spendingSummary}>
                   <View style={styles.summaryHeader}>
                     <Text style={styles.summaryTitle}>Total Expense</Text>
-                    <Text style={styles.summaryTotal}>${totalSpent.toFixed(2)}</Text>
+                    <Text style={styles.summaryTotal}>{currencySymbol}{totalSpent.toFixed(2)}</Text>
                   </View>
 
                   {/* Pie Chart for breakdown */}
@@ -501,7 +503,7 @@ export default function ReportsScreen() {
                           <Text style={styles.categoryPercentage}>{item.percentage}%</Text>
                         </View>
                       </View>
-                      <Text style={styles.categoryAmount}>$ {item.amount.toFixed(2)}</Text>
+                      <Text style={styles.categoryAmount}>{currencySymbol} {item.amount.toFixed(2)}</Text>
                     </View>
                   ))}
                 </View>

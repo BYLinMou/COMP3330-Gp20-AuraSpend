@@ -2,6 +2,51 @@ import { supabase } from './supabase';
 import type { Transaction } from './transactions';
 import { getAllBudgets, getMonthlyBudgetAmount, type Budget } from './budgets';
 import { getProfile } from './profiles';
+import { convertCurrency } from './currency-converter';
+
+/**
+ * Convert transaction amounts to user's primary currency
+ */
+async function convertTransactionsToUserCurrency(transactions: Transaction[]): Promise<Transaction[]> {
+  try {
+    const profile = await getProfile();
+    const userCurrency = profile?.primary_currency || 'HKD';
+    
+    // Convert all transactions
+    const convertedTransactions = await Promise.all(
+      transactions.map(async (transaction) => {
+        // If transaction has no currency or same currency, return as is
+        if (!transaction.currency || transaction.currency === userCurrency) {
+          return transaction;
+        }
+        
+        // Convert the amount
+        try {
+          const result = await convertCurrency(
+            Math.abs(transaction.amount),
+            transaction.currency,
+            userCurrency
+          );
+          
+          return {
+            ...transaction,
+            amount: transaction.amount >= 0 ? result.convertedAmount : -result.convertedAmount,
+          };
+        } catch (error) {
+          console.error(`Failed to convert ${transaction.currency} to ${userCurrency}:`, error);
+          // If conversion fails, return original amount
+          return transaction;
+        }
+      })
+    );
+    
+    return convertedTransactions;
+  } catch (error) {
+    console.error('Failed to convert transactions:', error);
+    // If anything fails, return original transactions
+    return transactions;
+  }
+}
 
 export interface MonthlyTrend {
   month: string;
@@ -68,7 +113,7 @@ export async function getMonthlyTrends(monthsCount: number = 6): Promise<Monthly
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('amount, occurred_at')
+      .select('amount, occurred_at, currency')
       .eq('user_id', user.id)
       .gte('occurred_at', startDate.toISOString())
       .lte('occurred_at', endDate.toISOString())
@@ -79,11 +124,14 @@ export async function getMonthlyTrends(monthsCount: number = 6): Promise<Monthly
       throw error;
     }
 
+    // Convert transactions to user's currency
+    const convertedTransactions = await convertTransactionsToUserCurrency(data as Transaction[]);
+
     // Group by month
     const monthlyData: Record<string, number> = {};
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
-    (data as Transaction[]).forEach((transaction) => {
+    convertedTransactions.forEach((transaction) => {
       const date = new Date(transaction.occurred_at);
       const key = `${date.getFullYear()}-${date.getMonth()}`;
       
@@ -140,7 +188,7 @@ export async function getWeeklySpending(): Promise<WeeklySpending[]> {
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('amount, occurred_at')
+      .select('amount, occurred_at, currency')
       .eq('user_id', user.id)
       .gte('occurred_at', startOfWeek.toISOString())
       .lte('occurred_at', endOfWeek.toISOString())
@@ -151,11 +199,14 @@ export async function getWeeklySpending(): Promise<WeeklySpending[]> {
       throw error;
     }
 
+    // Convert transactions to user's currency
+    const convertedTransactions = await convertTransactionsToUserCurrency(data as Transaction[]);
+
     // Group by day
     const dailyData: Record<string, number> = {};
     const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     
-    (data as Transaction[]).forEach((transaction) => {
+    convertedTransactions.forEach((transaction) => {
       const date = new Date(transaction.occurred_at);
       const dayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1; // Convert Sunday (0) to 6
       const dayName = daysOfWeek[dayIndex];
@@ -191,7 +242,7 @@ export async function getSpendingSummary(startDate: string, endDate: string): Pr
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('amount')
+      .select('amount, currency')
       .eq('user_id', user.id)
       .gte('occurred_at', startDate)
       .lte('occurred_at', endDate);
@@ -201,15 +252,16 @@ export async function getSpendingSummary(startDate: string, endDate: string): Pr
       throw error;
     }
 
-    const transactions = data as Transaction[];
+    // Convert transactions to user's currency
+    const convertedTransactions = await convertTransactionsToUserCurrency(data as Transaction[]);
     
     // Calculate income from transactions
-    const transactionIncome = transactions
+    const transactionIncome = convertedTransactions
       .filter(t => t.amount > 0)
       .reduce((sum, t) => sum + t.amount, 0);
     
     const expenses = Math.abs(
-      transactions
+      convertedTransactions
         .filter(t => t.amount < 0)
         .reduce((sum, t) => sum + t.amount, 0)
     );
@@ -222,7 +274,7 @@ export async function getSpendingSummary(startDate: string, endDate: string): Pr
       totalIncome: income,
       totalExpenses: expenses,
       balance: income - expenses,
-      transactionCount: transactions.length,
+      transactionCount: convertedTransactions.length,
     };
   } catch (error) {
     console.error('Failed to fetch spending summary:', error);
@@ -243,7 +295,7 @@ export async function getTopMerchants(startDate: string, endDate: string, limit:
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('merchant, amount')
+      .select('merchant, amount, currency')
       .eq('user_id', user.id)
       .gte('occurred_at', startDate)
       .lte('occurred_at', endDate)
@@ -255,11 +307,14 @@ export async function getTopMerchants(startDate: string, endDate: string, limit:
       throw error;
     }
 
+    // Convert transactions to user's currency
+    const convertedTransactions = await convertTransactionsToUserCurrency(data as Transaction[]);
+
     // Group by merchant
     const merchantData: Record<string, { amount: number; count: number }> = {};
     let totalSpending = 0;
 
-    (data as Transaction[]).forEach((transaction) => {
+    convertedTransactions.forEach((transaction) => {
       const merchant = transaction.merchant || 'Unknown';
       const amount = Math.abs(transaction.amount);
       
@@ -350,7 +405,7 @@ export async function getCategoryTrends(
     // Fetch current period
     const { data: currentData, error: currentError } = await supabase
       .from('transactions')
-      .select('amount, category:categories(name)')
+      .select('amount, currency, category:categories(name)')
       .eq('user_id', user.id)
       .gte('occurred_at', currentStart)
       .lte('occurred_at', currentEnd)
@@ -361,7 +416,7 @@ export async function getCategoryTrends(
     // Fetch previous period
     const { data: previousData, error: previousError } = await supabase
       .from('transactions')
-      .select('amount, category:categories(name)')
+      .select('amount, currency, category:categories(name)')
       .eq('user_id', user.id)
       .gte('occurred_at', previousStart)
       .lte('occurred_at', previousEnd)
@@ -369,16 +424,20 @@ export async function getCategoryTrends(
 
     if (previousError) throw previousError;
 
+    // Convert transactions to user's currency
+    const convertedCurrentData = await convertTransactionsToUserCurrency(currentData as any[]);
+    const convertedPreviousData = await convertTransactionsToUserCurrency(previousData as any[]);
+
     // Calculate current breakdown
     const currentBreakdown: Record<string, number> = {};
-    (currentData as any[]).forEach((t) => {
+    convertedCurrentData.forEach((t: any) => {
       const category = t.category?.name || 'Uncategorized';
       currentBreakdown[category] = (currentBreakdown[category] || 0) + Math.abs(t.amount);
     });
 
     // Calculate previous breakdown
     const previousBreakdown: Record<string, number> = {};
-    (previousData as any[]).forEach((t) => {
+    convertedPreviousData.forEach((t: any) => {
       const category = t.category?.name || 'Uncategorized';
       previousBreakdown[category] = (previousBreakdown[category] || 0) + Math.abs(t.amount);
     });
