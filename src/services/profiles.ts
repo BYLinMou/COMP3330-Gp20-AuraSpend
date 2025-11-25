@@ -5,7 +5,7 @@ export interface Profile {
   created_at: string;
   username: string | null;
   primary_currency: string | null;
-  income: number | null;
+  preferred_language: string | null;
 }
 
 /**
@@ -45,7 +45,7 @@ export async function getProfile(): Promise<Profile> {
 export type ProfileUpdateInput = {
   username?: string | null;
   primary_currency?: string | null;
-  income?: number | null;
+  preferred_language?: string | null;
 };
 
 /**
@@ -80,7 +80,7 @@ export async function createProfile(updates?: ProfileUpdateInput): Promise<Profi
     if (updates) {
       if (updates.username !== undefined) payload.username = updates.username;
       if (updates.primary_currency !== undefined) payload.primary_currency = updates.primary_currency;
-      if (updates.income !== undefined) payload.income = updates.income;
+      if (updates.preferred_language !== undefined) payload.preferred_language = updates.preferred_language;
     }
 
     const { data, error } = await supabase
@@ -116,7 +116,7 @@ export async function updateProfile(updates: ProfileUpdateInput): Promise<Profil
     const payload: Record<string, any> = {};
     if (updates.username !== undefined) payload.username = updates.username;
     if (updates.primary_currency !== undefined) payload.primary_currency = updates.primary_currency;
-    if (updates.income !== undefined) payload.income = updates.income;
+    if (updates.preferred_language !== undefined) payload.preferred_language = updates.preferred_language;
 
     if (Object.keys(payload).length === 0) {
       // Nothing to update; return current profile

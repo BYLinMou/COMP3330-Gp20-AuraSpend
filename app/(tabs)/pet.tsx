@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Gradients } from '../../constants/theme';
 import { RefreshableScrollView } from '../../components/refreshable-scroll-view';
 import FlippablePetCard from '../../components/flippable-pet-card';
+import { useLanguage } from '../../src/providers/LanguageProvider';
 import { 
   getPetState, 
   getActivePet, 
@@ -21,6 +22,7 @@ import {
 
 
 export default function PetScreen() {
+  const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const [petState, setPetState] = useState<PetState | null>(null);
   const [activePet, setActivePet] = useState<UserPet | null>(null);
@@ -90,7 +92,7 @@ export default function PetScreen() {
     } catch (error: any) {
       console.error('Error loading pet data:', error);
       // Show error to user if needed
-      Alert.alert('Error', 'Failed to load pet data. Please try again.');
+      Alert.alert(t('pet.error'), t('pet.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -106,9 +108,9 @@ export default function PetScreen() {
     // Check if still in cooldown
     if (cooldownEndTime && Date.now() < cooldownEndTime) {
       Alert.alert(
-        '⏰ Please Wait',
-        `You can claim XP again in ${remainingTime} seconds.`,
-        [{ text: 'OK', style: 'default' }]
+        t('pet.pleaseWait'),
+        t('pet.pleaseWaitMessage', { seconds: remainingTime }),
+        [{ text: t('pet.ok'), style: 'default' }]
       );
       return;
     }
@@ -123,22 +125,22 @@ export default function PetScreen() {
       
       if (result.leveledUp) {
         Alert.alert(
-          '🎉 Level Up!',
-          `Your pet reached level ${result.pet.level}!\nGained ${result.levelsGained} level(s) and +100 XP!`,
-          [{ text: 'Awesome!', style: 'default' }]
+          t('pet.levelUp'),
+          t('pet.levelUpMessage', { level: result.pet.level, levels: result.levelsGained }),
+          [{ text: t('pet.awesome'), style: 'default' }]
         );
       } else {
         Alert.alert(
-          '✨ XP Gained!',
-          `+100 XP earned!\nYour pet now has ${result.pet.xp} total XP.`,
-          [{ text: 'Nice!', style: 'default' }]
+          t('pet.xpGained'),
+          t('pet.xpGainedMessage', { xp: result.pet.xp }),
+          [{ text: t('pet.nice'), style: 'default' }]
         );
       }
       
       await loadPetData();
     } catch (error: any) {
       console.error('Error adding XP:', error);
-      Alert.alert('Error', 'Failed to add XP. Please try again.');
+      Alert.alert(t('pet.error'), t('pet.failedToGainXP'));
     }
   };
 
@@ -150,27 +152,27 @@ export default function PetScreen() {
       // Check if user has enough XP
       if (petState && petState.xp < availablePet.xp_cost) {
         Alert.alert(
-          'Not Enough XP',
-          `You need ${availablePet.xp_cost} XP but only have ${petState.xp} XP. Keep logging expenses to earn more!`
+          t('pet.notEnoughXP'),
+          t('pet.notEnoughXPMessage', { required: availablePet.xp_cost, current: petState.xp })
         );
         return;
       }
 
       Alert.alert(
-        'Purchase Pet',
-        `Do you want to purchase ${availablePet.breed} for ${availablePet.xp_cost} XP?`,
+        t('pet.purchasePet'),
+        t('pet.purchasePetMessage', { breed: availablePet.breed, cost: availablePet.xp_cost }),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('pet.cancel'), style: 'cancel' },
           {
-            text: 'Purchase',
+            text: t('pet.buy'),
             onPress: async () => {
               try {
                 await purchasePet(petId);
-                Alert.alert('Success!', `${availablePet.breed} has been added to your collection!`);
+                Alert.alert(t('pet.success'), t('pet.purchaseSuccess', { breed: availablePet.breed }));
                 await loadPetData();
               } catch (error: any) {
                 console.error('Error purchasing pet:', error);
-                Alert.alert('Error', error.message || 'Failed to purchase pet');
+                Alert.alert(t('pet.error'), error.message || t('pet.failedToPurchase'));
               }
             },
           },
@@ -185,7 +187,7 @@ export default function PetScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading your pet...</Text>
+          <Text style={styles.loadingText}>{t('pet.loadingPet')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -228,7 +230,7 @@ export default function PetScreen() {
             end={Gradients.primary.end}
             style={styles.speechBubble}
           >
-            <Text style={styles.speechText}>You're building wonderful money habits! 💖</Text>
+            <Text style={styles.speechText}>{t('pet.speechBubble')}</Text>
           </LinearGradient>
           <View style={styles.bubblePointer} />
         </View>
@@ -247,12 +249,12 @@ export default function PetScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="heart" size={24} color={Colors.error} />
-            <Text style={styles.cardTitle}>Pet Status</Text>
+            <Text style={styles.cardTitle}>{t('pet.petStatus')}</Text>
           </View>
 
           {/* Happiness */}
           <View style={styles.statusItem}>
-            <Text style={styles.statusLabel}>Happiness</Text>
+            <Text style={styles.statusLabel}>{t('pet.happiness')}</Text>
             <Text style={styles.statusValue}>{happiness}%</Text>
           </View>
           <View style={styles.progressBar}>
@@ -261,7 +263,7 @@ export default function PetScreen() {
 
           {/* Energy */}
           <View style={styles.statusItem}>
-            <Text style={styles.statusLabel}>Energy</Text>
+            <Text style={styles.statusLabel}>{t('pet.energy')}</Text>
             <Text style={styles.statusValue}>{energy}%</Text>
           </View>
           <View style={styles.progressBar}>
@@ -270,7 +272,7 @@ export default function PetScreen() {
 
           {/* Level Progress */}
           <View style={styles.statusItem}>
-            <Text style={styles.statusLabel}>Level Progress</Text>
+            <Text style={styles.statusLabel}>{t('pet.levelProgress')}</Text>
             <Text style={styles.statusValue}>{levelProgress}/{levelMax} XP</Text>
           </View>
           <View style={styles.progressBar}>
@@ -287,9 +289,9 @@ export default function PetScreen() {
           <View style={styles.streakContainer}>
             <View style={styles.streakLeft}>
               <Ionicons name="flash" size={20} color={Colors.warning} />
-              <Text style={styles.streakText}>Daily Streak: {dailyStreak} days</Text>
+              <Text style={styles.streakText}>{t('pet.dailyStreak', { count: dailyStreak })}</Text>
             </View>
-            <Text style={styles.streakTime}>Last fed: {lastFed}</Text>
+            <Text style={styles.streakTime}>{t('pet.lastFed')}: {lastFed}</Text>
           </View>
         </View>
 
@@ -313,24 +315,24 @@ export default function PetScreen() {
             remainingTime > 0 && styles.timerTextDisabled
           ]}>
             {remainingTime > 0 
-              ? `Wait ${remainingTime}s to claim XP ⏰` 
-              : 'Tap to gain +100 XP! 🎁'}
+              ? t('pet.waitToClaim', { seconds: remainingTime })
+              : t('pet.tapToGainXP')}
           </Text>
         </TouchableOpacity>
         <Text style={styles.timerSubtext}>
           {remainingTime > 0 
-            ? `Come back in ${remainingTime} seconds to claim your reward!`
-            : 'Claim your free XP now! Cooldown: 1 minute'}
+            ? t('pet.comeBackMessage', { seconds: remainingTime })
+            : t('pet.claimNow')}
         </Text>
 
         {/* Choose Your Pets Section */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="storefront" size={24} color={Colors.primary} />
-            <Text style={styles.cardTitle}>Choose Your Pets</Text>
+            <Text style={styles.cardTitle}>{t('pet.chooseYourPets')}</Text>
           </View>
           <Text style={styles.shopSubtitle}>
-            Purchase new pets with your XP! Current XP: {petState?.xp || 0}
+            {t('pet.shopSubtitle', { xp: petState?.xp || 0 })}
           </Text>
 
           {/* Available Pets for Purchase */}
@@ -360,7 +362,7 @@ export default function PetScreen() {
                       owned && styles.petShopButtonTextOwned,
                     ]}
                   >
-                    {owned ? 'Owned' : 'Buy'}
+                    {owned ? t('pet.owned') : t('pet.buy')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -372,10 +374,10 @@ export default function PetScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="gift" size={24} color={Colors.success} />
-            <Text style={styles.cardTitle}>Outfit Shop</Text>
+            <Text style={styles.cardTitle}>{t('pet.outfitShop')}</Text>
           </View>
           <Text style={styles.shopSubtitle}>
-            Earn XP by achieving financial goals to unlock new outfits!
+            {t('pet.outfitShopSubtitle')}
           </Text>
 
           {/* Outfits List */}
@@ -407,7 +409,7 @@ export default function PetScreen() {
                     !outfit.unlocked && styles.outfitButtonTextLocked,
                   ]}
                 >
-                  {outfit.wearing ? 'Wearing' : outfit.unlocked ? 'Wear' : 'Buy'}
+                  {outfit.wearing ? t('pet.wearing') : outfit.unlocked ? t('pet.wear') : t('pet.buy')}
                 </Text>
               </TouchableOpacity>
             </View>

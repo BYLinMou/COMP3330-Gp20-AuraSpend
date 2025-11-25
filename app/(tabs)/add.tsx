@@ -8,6 +8,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/theme';
 import { RefreshableScrollView } from '../../components/refreshable-scroll-view';
+import { useLanguage } from '../../src/providers/LanguageProvider';
 import { addTransaction } from '../../src/services/transactions';
 import { addReceiptItems } from '../../src/services/items';
 import { getCategories, addCategory, subscribeToCategoryChanges, type Category } from '../../src/services/categories';
@@ -27,6 +28,7 @@ interface ReceiptItem {
 }
 
 export default function AddScreen() {
+  const { t } = useLanguage();
   const { session } = useAuth();
   const { currencyCode: primaryCurrencyCode } = useCurrency();
   const [inputMethod, setInputMethod] = useState<InputMethod>('receipt');
@@ -227,7 +229,7 @@ export default function AddScreen() {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Please allow access to your photos to upload receipts.');
+        Alert.alert(t('add.permissionRequired'), t('add.allowPhotoAccess'));
         return;
       }
 
@@ -242,7 +244,7 @@ export default function AddScreen() {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image.');
+      Alert.alert(t('add.error'), t('add.failedToSelectImage'));
     }
   };
 
@@ -251,7 +253,7 @@ export default function AddScreen() {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Please allow camera access to take receipt photos.');
+        Alert.alert(t('add.permissionRequired'), t('add.allowCameraAccess'));
         return;
       }
 
@@ -265,7 +267,7 @@ export default function AddScreen() {
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      Alert.alert('Error', 'Failed to take photo.');
+      Alert.alert(t('add.error'), t('add.failedToTakePhoto'));
     }
   };
 
@@ -382,14 +384,14 @@ export default function AddScreen() {
     // Check authentication first
     if (!session) {
       console.warn('[Save Transaction] Blocked: no active session');
-      Alert.alert('Authentication Required', 'Please sign in to save transactions');
+      Alert.alert(t('add.authRequired'), t('add.pleaseSignIn'));
       return;
     }
 
     // Validation
     if (itemlist.length === 0 && (!amount || isNaN(parseFloat(amount)))) {
       console.warn('[Save Transaction] Blocked: no items or invalid amount');
-      Alert.alert('Validation Error', 'Please enter an amount or add items');
+      Alert.alert(t('add.validationError'), t('add.enterAmountOrItems'));
       return;
     }
 
@@ -445,9 +447,9 @@ export default function AddScreen() {
         }
       }
 
-      Alert.alert('Success', 'Transaction saved successfully!', [
+      Alert.alert(t('add.success'), t('add.transactionSavedSuccessfully'), [
         {
-          text: 'OK',
+          text: t('add.ok'),
           onPress: () => {
             // Reset form
             setAmount('');
@@ -462,8 +464,8 @@ export default function AddScreen() {
       ]);
     } catch (error: any) {
       console.error('Failed to save transaction:', error);
-      const errorMessage = error?.message || 'Failed to save transaction. Please try again.';
-      Alert.alert('Error', errorMessage);
+      const errorMessage = error?.message || t('add.failedToSaveTransaction');
+      Alert.alert(t('add.error'), errorMessage);
     } finally {
       console.log('[Save Transaction] Submit flow finished');
       setSubmitting(false);
@@ -479,25 +481,25 @@ export default function AddScreen() {
       setShowNewCategoryModal(false);
       
       if (Platform.OS === 'web') {
-        alert(`✅ Category "${suggestedCategory}" created and selected!\n\nReceipt information extracted! Please review the details and save.`);
+        alert(t('add.categoryCreatedSuccess', { name: suggestedCategory }));
       } else {
         Alert.alert(
-          '✅ Success', 
-          `Category "${suggestedCategory}" created and selected!\n\nReceipt information extracted! Please review the details and save.`,
-          [{ text: 'OK' }]
+          t('add.success'),
+          t('add.categoryCreatedSuccess', { name: suggestedCategory }),
+          [{ text: t('add.ok') }]
         );
       }
     } catch (error: any) {
       console.error('Failed to create category:', error);
       setShowNewCategoryModal(false);
-      
+
       if (Platform.OS === 'web') {
-        alert(`⚠️ Category Creation Failed\n\n${error?.message || 'Failed to create the suggested category. Please create it manually in Settings.'}`);
+        alert(t('add.categoryCreationFailed', { message: error?.message }));
       } else {
         Alert.alert(
-          '⚠️ Category Creation Failed',
-          error?.message || 'Failed to create the suggested category. Please create it manually in Settings.',
-          [{ text: 'OK' }]
+          t('add.categoryCreationFailed'),
+          error?.message || t('add.failedToCreateCategory'),
+          [{ text: t('add.ok') }]
         );
       }
     }
@@ -538,20 +540,6 @@ export default function AddScreen() {
           }
         }}
       >
-        {/* Debug Info - Remove in production */}
-        {__DEV__ && (
-          <View style={styles.debugInfo}>
-            <Text style={styles.debugText}>
-              Auth Status: {session ? '✅ Logged In' : '❌ Not Logged In'}
-            </Text>
-            {session && (
-              <Text style={styles.debugText}>
-                User: {session.user?.email}
-              </Text>
-            )}
-          </View>
-        )}
-
         {/* Input Method Selector */}
         <View style={styles.methodSelector}>
           <TouchableOpacity
@@ -617,7 +605,7 @@ export default function AddScreen() {
                 disabled={processingReceipt}
               >
                 <Ionicons name="images-outline" size={20} color={Colors.textPrimary} />
-                <Text style={styles.uploadButtonText}>Choose File</Text>
+                <Text style={styles.uploadButtonText}>{t('add.chooseFile')}</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.uploadButton, processingReceipt && styles.uploadButtonDisabled]} 
@@ -625,7 +613,7 @@ export default function AddScreen() {
                 disabled={processingReceipt}
               >
                 <Ionicons name="camera-outline" size={20} color={Colors.textPrimary} />
-                <Text style={styles.uploadButtonText}>Take Photo</Text>
+                <Text style={styles.uploadButtonText}>{t('add.takePhoto')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -633,12 +621,12 @@ export default function AddScreen() {
 
         {/* Transaction Details Form */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Transaction Details</Text>
+          <Text style={styles.sectionTitle}>{t('add.transactionDetails')}</Text>
 
           {/* Amount with Inline Currency Selector */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>
-              Amount <Text style={styles.required}>*</Text>
+              {t('add.amount')} <Text style={styles.required}>*</Text>
             </Text>
             <View style={styles.amountInput}>
               <TouchableOpacity
@@ -664,13 +652,13 @@ export default function AddScreen() {
               />
             </View>
             <Text style={styles.currencySubtext}>
-              Amount is automatically calculated from item list. If you enter a value manually, it will override the auto-calculation (useful for discounts or custom totals).
+              {t('add.amountCalculationInfo')}
             </Text>
           </View>
 
           {/* Date & Time (occurred_at) */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Date & Time <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.inputLabel}>{t('add.dateTime')} <Text style={styles.required}>*</Text></Text>
             {Platform.OS === 'web' ? (
               <input
                 type="datetime-local"
@@ -761,8 +749,8 @@ export default function AddScreen() {
             >
               <Text style={categoryId ? styles.selectValue : styles.selectPlaceholder}>
                 {categoryId 
-                  ? categories.find(c => c.id === categoryId)?.name || 'No Category'
-                  : 'No Category'}
+                  ? categories.find(c => c.id === categoryId)?.name || t('add.noCategory')
+                  : t('add.noCategory')}
               </Text>
               <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
             </TouchableOpacity>
@@ -770,10 +758,10 @@ export default function AddScreen() {
 
           {/* Item List */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Item List (Optional)</Text>
+            <Text style={styles.inputLabel}>{t('add.itemList')} ({t('add.optional')})</Text>
             {itemlist.length > 0 && (
               <Text style={styles.itemListSubtext}>
-                Swipe left on any item to delete it.
+                {t('add.swipeToDelete')}
               </Text>
             )}
             {/* {itemlist.length === 0 && (
@@ -785,10 +773,10 @@ export default function AddScreen() {
             )} */}
             {itemlist.length > 0 && (
               <View style={styles.itemListHeader}>
-                <Text style={[styles.itemHeaderText, { flex: 1 }]}>Item</Text>
-                <Text style={[styles.itemHeaderText, { width: 30 }]}>Qty</Text>
-                <Text style={[styles.itemHeaderText, { width: 40 }]}>Price</Text>
-                <Text style={[styles.itemHeaderText, { width: 50 }]}>Total</Text>
+                <Text style={[styles.itemHeaderText, { flex: 1 }]}>{t('add.item')}</Text>
+                <Text style={[styles.itemHeaderText, { width: 30 }]}>{t('add.qty')}</Text>
+                <Text style={[styles.itemHeaderText, { width: 40 }]}>{t('add.price')}</Text>
+                <Text style={[styles.itemHeaderText, { width: 50 }]}>{t('add.total')}</Text>
               </View>
             )}
             {itemlist.map((item, index) => {
@@ -810,7 +798,7 @@ export default function AddScreen() {
                       onPress={() => setItemlist(itemlist.filter((_, i) => i !== index))}
                     >
                       <Ionicons name="trash-outline" size={16} color={Colors.white} />
-                      <Text style={styles.swipeDeleteText}>Delete</Text>
+                      <Text style={styles.swipeDeleteText}>{t('add.Delete')}</Text>
                     </TouchableOpacity>
                   </Animated.View>
                 );
@@ -827,7 +815,7 @@ export default function AddScreen() {
                   <View style={styles.itemRow}>
                     <GestureTextInput
                       style={styles.itemInput}
-                      placeholder="Item name"
+                      placeholder={t('add.itemNamePlaceholder')}
                       value={item.name}
                       onChangeText={(text) => {
                         const newList = [...itemlist];
@@ -839,7 +827,7 @@ export default function AddScreen() {
                     />
                     <GestureTextInput
                       style={[styles.itemInputSmall, { width: 25 }]}
-                      placeholder="Qty"
+                      placeholder={t('add.qtyPlaceholder')}
                       keyboardType="decimal-pad"
                       scrollEnabled={false}
                       numberOfLines={1}
@@ -873,7 +861,7 @@ export default function AddScreen() {
                     />
                     <GestureTextInput
                       style={[styles.itemInputSmall, { width: 35 }]}
-                      placeholder="Price"
+                      placeholder={t('add.pricePlaceholder')}
                       keyboardType="decimal-pad"
                       scrollEnabled={false}
                       numberOfLines={1}
@@ -919,13 +907,13 @@ export default function AddScreen() {
               onPress={() => setItemlist([...itemlist, { name: '', amount: 1, price: 0 }])}
             >
               <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
-              <Text style={styles.addItemText}>Add Item</Text>
+              <Text style={styles.addItemText}>{t('add.addItem')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Payment Method */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Payment Method (Optional)</Text>
+            <Text style={styles.inputLabel}>{t('add.paymentMethod')} ({t('add.optional')})</Text>
             <TouchableOpacity 
               style={styles.selectInput}
               onPress={() => setShowPaymentMethodModal(true)}
@@ -949,7 +937,7 @@ export default function AddScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Ionicons name="wallet-outline" size={18} color={Colors.gray300} />
                     <Text style={styles.selectPlaceholder}>
-                      Select payment method
+                      {t('add.selectPaymentMethodPlaceholder')}
                     </Text>
                   </View>
                 )}
@@ -960,10 +948,10 @@ export default function AddScreen() {
 
           {/* Merchant */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Merchant (Optional)</Text>
+            <Text style={styles.inputLabel}>{t('add.merchant')} ({t('add.optional')})</Text>
             <RNTextInput
               style={styles.textInput}
-              placeholder="Enter merchant name"
+              placeholder={t('add.merchantPlaceholder')}
               value={merchant}
               onChangeText={setMerchant}
             />
@@ -971,10 +959,10 @@ export default function AddScreen() {
 
           {/* Notes */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Notes (Optional)</Text>
+            <Text style={styles.inputLabel}>{t('add.notes')} ({t('add.optional')})</Text>
             <RNTextInput
               style={[styles.textInput, styles.notesInput]}
-              placeholder="Add any additional notes..."
+              placeholder={t('add.notesPlaceholder')}
               multiline
               numberOfLines={3}
               value={notes}
@@ -1019,11 +1007,11 @@ export default function AddScreen() {
             {submitting ? (
               <ActivityIndicator color={Colors.white} />
             ) : (
-              <Text style={styles.saveButtonText}>Save Transaction</Text>
+              <Text style={styles.saveButtonText}>{t('add.saveTransaction')}</Text>
             )}
           </TouchableOpacity>
           {!session && (
-            <Text style={styles.warningText}>Please sign in to save transactions</Text>
+            <Text style={styles.warningText}>{t('add.pleaseSignInToSave')}</Text>
           )}
         </View>
 
@@ -1040,7 +1028,7 @@ export default function AddScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Category</Text>
+              <Text style={styles.modalTitle}>{t('add.selectCategory')}</Text>
               <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
@@ -1066,7 +1054,7 @@ export default function AddScreen() {
                       styles.modalItemText,
                       !categoryId && styles.modalItemTextSelected
                     ]}>
-                      No Category
+                      {t('add.noCategory')}
                     </Text>
                     {!categoryId && (
                       <Ionicons name="checkmark" size={20} color={Colors.primary} />
@@ -1075,7 +1063,7 @@ export default function AddScreen() {
                   
                   {/* User Categories */}
                   {categories.length === 0 ? (
-                    <Text style={styles.emptyText}>No custom categories. Create one in Settings!</Text>
+                    <Text style={styles.emptyText}>{t('add.noCustomCategories')}</Text>
                   ) : (
                     categories.map((category) => (
                       <TouchableOpacity
@@ -1118,7 +1106,7 @@ export default function AddScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Currency</Text>
+              <Text style={styles.modalTitle}>{t('add.selectCurrency')}</Text>
               <TouchableOpacity onPress={() => setShowCurrencyModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
@@ -1166,7 +1154,7 @@ export default function AddScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Payment Method</Text>
+              <Text style={styles.modalTitle}>{t('add.selectPaymentMethod')}</Text>
               <TouchableOpacity onPress={() => setShowPaymentMethodModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
@@ -1188,7 +1176,7 @@ export default function AddScreen() {
                   styles.modalItemText,
                   !selectedPaymentMethod && styles.modalItemTextSelected
                 ]}>
-                  Not specified
+                  {t('add.notSpecified')}
                 </Text>
                 {!selectedPaymentMethod && (
                   <Ionicons name="checkmark" size={20} color={Colors.primary} />

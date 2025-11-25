@@ -6,16 +6,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/theme';
 import { RefreshableScrollView } from '../../components/refreshable-scroll-view';
+import { useLanguage } from '../../src/providers/LanguageProvider';
 import { 
   getRecentTransactions, 
-  getIncomeAndExpenses,
   subscribeToTransactionChanges,
   deleteTransaction,
   getBalancesByPaymentMethod,
   type Transaction 
 } from '../../src/services/transactions';
 import { getPaymentMethods } from '../../src/services/payment-methods';
-import { getMonthlyBudgetAmount } from '../../src/services/budgets';
+import { getMonthlyBudgetAmount, getCurrentBudget } from '../../src/services/budgets';
 import { getProfile } from '../../src/services/profiles';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { useCurrency } from '../../src/providers/CurrencyProvider';
@@ -24,7 +24,7 @@ import { getItemsByTransaction, type ItemRow, debugGetAllUserItems } from '../..
 const { width } = Dimensions.get('window');
 
 // Helper function to format relative time
-function getRelativeTime(dateString: string): string {
+function getRelativeTime(dateString: string, t: any): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -32,14 +32,15 @@ function getRelativeTime(dateString: string): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays === 1) return '1 day ago';
-  return `${diffDays} days ago`;
+  if (diffMins < 1) return t('home.justNow');
+  if (diffMins < 60) return t('home.minutesAgo', { count: diffMins });
+  if (diffHours < 24) return t('home.hoursAgo', { count: diffHours });
+  if (diffDays === 1) return t('home.oneDayAgo');
+  return t('home.daysAgo', { count: diffDays });
 }
 
 export default function HomeScreen() {
+  const { t } = useLanguage();
   const { session } = useAuth();
   const { currencySymbol, currencyCode, convertToUserCurrency } = useCurrency();
   const router = useRouter();
@@ -48,7 +49,6 @@ export default function HomeScreen() {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [convertedAmounts, setConvertedAmounts] = useState<Record<string, number>>({});
   const [balance, setBalance] = useState(0);
-  const [income, setIncome] = useState(0);
   const [spent, setSpent] = useState(0);
   const [transactionLimit, setTransactionLimit] = useState(5);
   const [showLimitDropdown, setShowLimitDropdown] = useState(false);
@@ -238,23 +238,21 @@ export default function HomeScreen() {
       const endDate = lastDay.toISOString().split('T')[0];
 
       // Fetch all data in parallel
-      const [transactions, stats, monthlyBudget, profile] = await Promise.all([
+      const [transactions, monthlyBudget] = await Promise.all([
         getRecentTransactions(transactionLimit),
-        getIncomeAndExpenses(startDate, endDate, {
-          convertToUserCurrency,
-          userCurrency: currencyCode,
-        }),
         getMonthlyBudgetAmount(),
-        getProfile(),
       ]);
 
+      // Calculate expenses from transactions
+      const expenses = transactions
+        .filter(t => t.amount < 0)
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
       setRecentTransactions(transactions);
-      // Use profile income if set, otherwise use calculated income from transactions
-      setIncome(profile?.income || stats.income);
-      setSpent(stats.expenses);
-      // Balance = income - expenses
-      setBalance((profile?.income || stats.income) - stats.expenses);
+      setSpent(expenses);
       setBudget(monthlyBudget);
+      // Balance = budget - expenses
+      setBalance(monthlyBudget - expenses);
 
       // Convert transaction amounts to user's currency
       await convertTransactionAmounts(transactions);
@@ -284,23 +282,21 @@ export default function HomeScreen() {
       const endDate = lastDay.toISOString().split('T')[0];
 
       // Fetch all data in parallel
-      const [transactions, stats, monthlyBudget, profile] = await Promise.all([
+      const [transactions, monthlyBudget] = await Promise.all([
         getRecentTransactions(transactionLimit),
-        getIncomeAndExpenses(startDate, endDate, {
-          convertToUserCurrency,
-          userCurrency: currencyCode,
-        }),
         getMonthlyBudgetAmount(),
-        getProfile(),
       ]);
 
+      // Calculate expenses from transactions
+      const expenses = transactions
+        .filter(t => t.amount < 0)
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
       setRecentTransactions(transactions);
-      // Use profile income if set, otherwise use calculated income from transactions
-      setIncome(profile?.income || stats.income);
-      setSpent(stats.expenses);
-      // Balance = income - expenses
-      setBalance((profile?.income || stats.income) - stats.expenses);
+      setSpent(expenses);
       setBudget(monthlyBudget);
+      // Balance = budget - expenses
+      setBalance(monthlyBudget - expenses);
     } catch (error) {
       console.error('Error refreshing dashboard data:', error);
     } finally {
@@ -347,18 +343,18 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
               >
                 <View style={styles.balanceHeader}>
-                  <Text style={styles.balanceLabel}>Current Balance</Text>
+                  <Text style={styles.balanceLabel}>{t('home.currentBalance')}</Text>
                   <Ionicons name="wallet-outline" size={24} color={Colors.white} />
                 </View>
                 <Text style={styles.balanceAmount}>{currencySymbol}{balance.toFixed(2)}</Text>
                 <View style={styles.balanceFooter}>
                   <View style={styles.balanceItem}>
-                    <Ionicons name="trending-up" size={16} color={Colors.white} />
-                    <Text style={styles.balanceItemText}>Income: {currencySymbol}{income.toFixed(2)}</Text>
+                    <Ionicons name="wallet" size={16} color={Colors.white} />
+                    <Text style={styles.balanceItemText}>{t('home.budget')}: {currencySymbol}{budget.toFixed(2)}</Text>
                   </View>
                   <View style={styles.balanceItem}>
                     <Ionicons name="trending-down" size={16} color={Colors.white} />
-                    <Text style={styles.balanceItemText}>Spent: {currencySymbol}{spent.toFixed(2)}</Text>
+                    <Text style={styles.balanceItemText}>{t('home.spent')}: {currencySymbol}{spent.toFixed(2)}</Text>
                   </View>
                 </View>
               </LinearGradient>
@@ -406,7 +402,7 @@ export default function HomeScreen() {
                 ) : (
                   <View style={styles.paymentMethodsList}>
                     {Object.entries(paymentMethodBalances).length === 0 ? (
-                      <Text style={styles.paymentMethodEmpty}>No payment methods found</Text>
+                      <Text style={styles.paymentMethodEmpty}>{t('home.noPaymentMethods')}</Text>
                     ) : (
                       Object.entries(paymentMethodBalances)
                         .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
@@ -466,14 +462,14 @@ export default function HomeScreen() {
           ]}
         >
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Monthly Budget</Text>
+            <Text style={styles.cardTitle}>{t('home.monthlyBudget')}</Text>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{budgetUsed}% used</Text>
+              <Text style={styles.badgeText}>{budgetUsed}% {t('home.used')}</Text>
             </View>
           </View>
           <View style={styles.budgetInfo}>
-            <Text style={styles.budgetAmount}>{currencySymbol}{spent.toFixed(2)} spent</Text>
-            <Text style={styles.budgetAmount}>{currencySymbol}{budget.toFixed(2)} budget</Text>
+            <Text style={styles.budgetAmount}>{currencySymbol}{spent.toFixed(2)} {t('home.spent')}</Text>
+            <Text style={styles.budgetAmount}>{currencySymbol}{budget.toFixed(2)} {t('home.budget')}</Text>
           </View>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${budgetUsed}%` }]} />
@@ -481,13 +477,13 @@ export default function HomeScreen() {
           {budgetUsed >= 80 && budgetUsed <= 100 && (
             <View style={styles.warningContainer}>
               <Ionicons name="alert-circle" size={16} color={Colors.error} />
-              <Text style={styles.warningText}>You're close to your budget limit!</Text>
+              <Text style={styles.warningText}>{t('home.closeToBudgetLimit')}</Text>
             </View>
           )}
           {budgetUsed > 100 && (
             <View style={styles.warningContainer}>
               <Ionicons name="alert-circle" size={16} color={Colors.error} />
-              <Text style={styles.warningText}>You have exceeded your budget!</Text>
+              <Text style={styles.warningText}>{t('home.exceededBudget')}</Text>
             </View>
           )}
         </Animated.View>
@@ -525,9 +521,9 @@ export default function HomeScreen() {
             <View style={styles.viewAllTransactionsLeft}>
               <Ionicons name="list-outline" size={28} color={Colors.primary} />
               <View style={styles.viewAllTransactionsText}>
-                <Text style={styles.viewAllTransactionsTitle}>View All Transactions</Text>
+                <Text style={styles.viewAllTransactionsTitle}>{t('home.viewAllTransactions')}</Text>
                 <Text style={styles.viewAllTransactionsSubtitle}>
-                  Search and filter your transactions
+                  {t('home.searchAndFilterTransactions')}
                 </Text>
               </View>
             </View>
@@ -558,7 +554,7 @@ export default function HomeScreen() {
           ]}
         >
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Recent Transactions</Text>
+            <Text style={styles.cardTitle}>{t('home.recentTransactions')}</Text>
             <View style={styles.dropdownContainer}>
               <TouchableOpacity
                 style={styles.dropdownButton}
@@ -607,7 +603,7 @@ export default function HomeScreen() {
           ) : recentTransactions.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="receipt-outline" size={48} color={Colors.textSecondary} />
-              <Text style={styles.emptyText}>No transactions yet</Text>
+              <Text style={styles.emptyText}>{t('home.noTransactions')}</Text>
             </View>
           ) : (
             recentTransactions.map((transaction) => {
@@ -636,7 +632,7 @@ export default function HomeScreen() {
                           }));
                         } catch (error) {
                           console.error('Failed to fetch transaction items:', error);
-                          Alert.alert('Error', 'Failed to load items');
+                          Alert.alert(t('home.error'), t('home.failedToLoadItems'));
                         }
                       } else {
                         console.log(`[DEBUG] Using cached items for transaction: ${transaction.id}`, transactionItems[transaction.id]);
@@ -690,7 +686,7 @@ export default function HomeScreen() {
                           }),
                         }
                       ]}>
-                        {getRelativeTime(transaction.occurred_at)}
+                        {getRelativeTime(transaction.occurred_at, t)}
                       </Animated.Text>
                     </View>
                     <View style={styles.transactionRight}>
@@ -737,15 +733,15 @@ export default function HomeScreen() {
                   <View style={styles.transactionExpandedDetails}>
                     {/* Category */}
                     <View style={styles.expandedDetailRow}>
-                      <Text style={styles.expandedDetailLabel}>Category</Text>
+                      <Text style={styles.expandedDetailLabel}>{t('home.category')}</Text>
                       <Text style={styles.expandedDetailValue}>
-                        {transaction.category?.name || 'Uncategorized'}
+                        {transaction.category?.name || t('home.uncategorized')}
                       </Text>
                     </View>
 
                     {/* Date & Time */}
                     <View style={styles.expandedDetailRow}>
-                      <Text style={styles.expandedDetailLabel}>Date & Time</Text>
+                      <Text style={styles.expandedDetailLabel}>{t('home.dateTime')}</Text>
                       <Text style={styles.expandedDetailValue}>
                         {new Date(transaction.occurred_at).toLocaleString('en-US', {
                           year: 'numeric',
@@ -760,7 +756,7 @@ export default function HomeScreen() {
                     {/* Merchant */}
                     {transaction.merchant && (
                       <View style={styles.expandedDetailRow}>
-                        <Text style={styles.expandedDetailLabel}>Merchant</Text>
+                        <Text style={styles.expandedDetailLabel}>{t('home.merchant')}</Text>
                         <Text style={styles.expandedDetailValue}>{transaction.merchant}</Text>
                       </View>
                     )}
@@ -768,14 +764,14 @@ export default function HomeScreen() {
                     {/* Payment Method */}
                     {transaction.payment_method && (
                       <View style={styles.expandedDetailRow}>
-                        <Text style={styles.expandedDetailLabel}>Payment Method</Text>
+                        <Text style={styles.expandedDetailLabel}>{t('home.paymentMethod')}</Text>
                         <Text style={styles.expandedDetailValue}>{transaction.payment_method}</Text>
                       </View>
                     )}
 
                     {/* Source */}
                     <View style={styles.expandedDetailRow}>
-                      <Text style={styles.expandedDetailLabel}>Source</Text>
+                      <Text style={styles.expandedDetailLabel}>{t('home.source')}</Text>
                       <View style={styles.sourceBadge}>
                         <Ionicons 
                           name={
@@ -788,9 +784,9 @@ export default function HomeScreen() {
                           style={{ marginRight: 4 }}
                         />
                         <Text style={styles.sourceBadgeText}>
-                          {transaction.source === 'manual' ? 'Manual' :
-                           transaction.source === 'ocr' ? 'Receipt (OCR)' :
-                           'AI Suggested'}
+                          {transaction.source === 'manual' ? t('home.sourceManual') :
+                           transaction.source === 'ocr' ? t('home.sourceReceipt') :
+                           t('home.sourceAI')}
                         </Text>
                       </View>
                     </View>
@@ -805,24 +801,24 @@ export default function HomeScreen() {
                             {items.map((item, index) => {
                               console.log(`[DEBUG] Rendering item ${index}:`, item.item_name);
                               return (
-                                <View key={item.id || index} style={styles.expandedDetailRow}>
-                                  <Text style={styles.expandedDetailLabel}>Item {index + 1}</Text>
-                                  <View style={styles.itemDetailContainer}>
-                                    <Text 
-                                      style={styles.itemDetailName}
-                                      numberOfLines={2}
-                                      ellipsizeMode="tail"
-                                    >
-                                      {item.item_name || 'Unknown Item'}
-                                    </Text>
-                                    <View style={styles.itemDetailQtyPrice}>
-                                      <Text style={styles.itemDetailQty}>Qty: {item.item_amount}</Text>
-                                      <Text style={styles.itemDetailPrice}>
-                                        ${(item.item_price * item.item_amount).toFixed(2)}
+                                  <View key={item.id || index} style={styles.expandedDetailRow}>
+                                    <Text style={styles.expandedDetailLabel}>{t('home.item', { number: index + 1 })}</Text>
+                                    <View style={styles.itemDetailContainer}>
+                                      <Text 
+                                        style={styles.itemDetailName}
+                                        numberOfLines={2}
+                                        ellipsizeMode="tail"
+                                      >
+                                        {item.item_name || t('home.unknownItem')}
                                       </Text>
+                                      <View style={styles.itemDetailQtyPrice}>
+                                        <Text style={styles.itemDetailQty}>{t('home.quantity')}: {item.item_amount}</Text>
+                                        <Text style={styles.itemDetailPrice}>
+                                          ${(item.item_price * item.item_amount).toFixed(2)}
+                                        </Text>
+                                      </View>
                                     </View>
                                   </View>
-                                </View>
                               );
                             })}
                           </View>
@@ -834,7 +830,7 @@ export default function HomeScreen() {
                     {/* Notes */}
                     {transaction.note && (
                       <View style={styles.expandedDetailRow}>
-                        <Text style={styles.expandedDetailLabel}>Notes</Text>
+                        <Text style={styles.expandedDetailLabel}>{t('home.notes')}</Text>
                         <Text style={styles.expandedDetailValue}>{transaction.note}</Text>
                       </View>
                     )}
@@ -844,12 +840,12 @@ export default function HomeScreen() {
                       style={styles.transactionDeleteButton}
                       onPress={() => {
                         Alert.alert(
-                          'Delete Transaction',
-                          'Are you sure you want to delete this transaction?',
+                          t('home.deleteTransaction'),
+                          t('home.deleteTransactionConfirm'),
                           [
-                            { text: 'Cancel', style: 'cancel' },
+                            { text: t('home.cancel'), style: 'cancel' },
                             {
-                              text: 'Delete',
+                              text: t('home.delete'),
                               style: 'destructive',
                               onPress: async () => {
                                 try {
@@ -857,7 +853,7 @@ export default function HomeScreen() {
                                   setExpandedTransactionId(null);
                                   loadData();
                                 } catch (error) {
-                                  Alert.alert('Error', 'Failed to delete transaction');
+                                  Alert.alert(t('home.error'), t('home.failedToDelete'));
                                 }
                               }
                             }
@@ -866,7 +862,7 @@ export default function HomeScreen() {
                       }}
                     >
                       <Ionicons name="trash-outline" size={16} color={Colors.error} />
-                      <Text style={styles.transactionDeleteButtonText}>Delete</Text>
+                      <Text style={styles.transactionDeleteButtonText}>{t('home.delete')}</Text>
                     </TouchableOpacity>
                   </View>
                 )}

@@ -61,7 +61,6 @@ export interface WeeklySpending {
 }
 
 export interface SpendingSummary {
-  totalIncome: number;
   totalExpenses: number;
   balance: number;
   transactionCount: number;
@@ -230,7 +229,6 @@ export async function getWeeklySpending(): Promise<WeeklySpending[]> {
 
 /**
  * Get spending summary for a date range
- * Uses profile income if set, otherwise uses calculated income from transactions
  */
 export async function getSpendingSummary(startDate: string, endDate: string): Promise<SpendingSummary> {
   try {
@@ -255,25 +253,15 @@ export async function getSpendingSummary(startDate: string, endDate: string): Pr
     // Convert transactions to user's currency
     const convertedTransactions = await convertTransactionsToUserCurrency(data as Transaction[]);
     
-    // Calculate income from transactions
-    const transactionIncome = convertedTransactions
-      .filter(t => t.amount > 0)
-      .reduce((sum, t) => sum + t.amount, 0);
-    
     const expenses = Math.abs(
       convertedTransactions
         .filter(t => t.amount < 0)
         .reduce((sum, t) => sum + t.amount, 0)
     );
 
-    // Get profile income (use this as primary source)
-    const profile = await getProfile();
-    const income = profile?.income || transactionIncome;
-
     return {
-      totalIncome: income,
       totalExpenses: expenses,
-      balance: income - expenses,
+      balance: 0, // Balance will be calculated by caller using budget
       transactionCount: convertedTransactions.length,
     };
   } catch (error) {
@@ -365,19 +353,12 @@ export async function compareSpendingPeriods(
       ? (expensesDiff / summary1.totalExpenses) * 100 
       : 0;
 
-    const incomeDiff = summary2.totalIncome - summary1.totalIncome;
-    const incomePercentChange = summary1.totalIncome > 0 
-      ? (incomeDiff / summary1.totalIncome) * 100 
-      : 0;
-
     return {
       period1: summary1,
       period2: summary2,
       comparison: {
         expensesDiff,
         expensesPercentChange,
-        incomeDiff,
-        incomePercentChange,
       },
     };
   } catch (error) {

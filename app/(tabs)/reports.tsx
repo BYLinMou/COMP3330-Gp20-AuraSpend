@@ -14,10 +14,12 @@ import {
   getSpendingSummary,
   type MonthlyTrend,
 } from '../../src/services/reports';
+import { getCurrentBudget, getMonthlyBudgetAmount } from '../../src/services/budgets';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { useCurrency } from '../../src/providers/CurrencyProvider';
 import { PieChart } from 'react-native-chart-kit';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { useLanguage } from '../../src/providers/LanguageProvider';
 
 const { width } = Dimensions.get('window');
 const CHART_HEIGHT = 160;
@@ -35,6 +37,7 @@ type ChartPoint = {
 export default function ReportsScreen() {
   const { session } = useAuth();
   const { currencySymbol, currencyCode, convertToUserCurrency } = useCurrency();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabType>('trends');
   const [period, setPeriod] = useState<PeriodType>('month');
   const [loading, setLoading] = useState(false);
@@ -45,7 +48,7 @@ export default function ReportsScreen() {
     color: string;
     percentage: number;
   }>>([]);
-  const [totalIncome, setTotalIncome] = useState(0);
+  const [totalBudget, setTotalBudget] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
   const [chartWidth, setChartWidth] = useState(0);
@@ -185,16 +188,30 @@ export default function ReportsScreen() {
         getSpendingBreakdown(startDate, endDate),
       ];
 
+      // Get budget amount based on period
+      let budgetPromise: Promise<number>;
+      if (period === 'year') {
+        // For yearly view, get the full yearly budget amount
+        budgetPromise = getCurrentBudget().then(b => {
+          if (!b) return 24000; // Default yearly budget
+          return b.period === 'yearly' ? b.amount : b.amount * 12;
+        });
+      } else {
+        // For monthly or weekly view, get monthly budget
+        budgetPromise = getMonthlyBudgetAmount();
+      }
+      dataToLoad.push(budgetPromise);
+
       // Only load trends if on trends tab
       if (activeTab === 'trends') {
         dataToLoad.push(getMonthlyTrends(6));
       }
 
       const results = await Promise.all(dataToLoad);
-      const [summary, breakdown, trends] = results;
+      const [summary, breakdown, budgetAmount, trends] = results;
 
       // Update summary
-      setTotalIncome(summary.totalIncome);
+      setTotalBudget(budgetAmount);
       setTotalSpent(summary.totalExpenses);
 
       // Update breakdown
@@ -250,18 +267,20 @@ export default function ReportsScreen() {
         refreshing={refreshing}
         onRefresh={onRefresh}
       >
-        {/* Income and Spent Cards */}
+        {/* Budget and Spent Cards */}
         <View style={styles.summaryCards}>
-          <View style={[styles.summaryCard, styles.incomeCard]}>
-            <Text style={styles.summaryLabel}>Total Income</Text>
-            <Text style={styles.summaryAmount}>{currencySymbol}{totalIncome.toFixed(2)}</Text>
+          <View style={[styles.summaryCard, styles.budgetCard]}>
+            <Text style={styles.summaryLabel}>
+              {period === 'year' ? t('reports.yearlyBudget') : t('reports.monthlyBudget')}
+            </Text>
+            <Text style={styles.summaryAmount}>{currencySymbol}{totalBudget.toFixed(2)}</Text>
             <View style={styles.trendIcon}>
-              <Ionicons name="trending-up" size={24} color={Colors.white} />
+              <Ionicons name="wallet-outline" size={24} color={Colors.white} />
             </View>
           </View>
 
           <View style={[styles.summaryCard, styles.spentCard]}>
-            <Text style={styles.summaryLabel}>Total Spent</Text>
+            <Text style={styles.summaryLabel}>{t('reports.totalSpent')}</Text>
             <Text style={styles.summaryAmount}>{currencySymbol}{totalSpent.toFixed(2)}</Text>
             <View style={styles.trendIcon}>
               <Ionicons name="trending-down" size={24} color={Colors.white} />
@@ -276,7 +295,7 @@ export default function ReportsScreen() {
             onPress={() => setActiveTab('trends')}
           >
             <Text style={[styles.tabText, activeTab === 'trends' && styles.tabTextActive]}>
-              Trends
+              {t('reports.trends')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -284,7 +303,7 @@ export default function ReportsScreen() {
             onPress={() => setActiveTab('breakdown')}
           >
             <Text style={[styles.tabText, activeTab === 'breakdown' && styles.tabTextActive]}>
-              Breakdown
+              {t('reports.breakdown')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -292,7 +311,7 @@ export default function ReportsScreen() {
             onPress={() => setActiveTab('compare')}
           >
             <Text style={[styles.tabText, activeTab === 'compare' && styles.tabTextActive]}>
-              Compare
+              {t('reports.compare')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -300,8 +319,8 @@ export default function ReportsScreen() {
         {/* Spending Trends Chart */}
         {activeTab === 'trends' && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Spending Trends</Text>
-            <Text style={styles.cardSubtitle}>Monthly spending vs budget over time</Text>
+            <Text style={styles.cardTitle}>{t('reports.spendingTrends')}</Text>
+            <Text style={styles.cardSubtitle}>{t('reports.spendingTrendsSubtitle')}</Text>
 
             <View style={styles.chartContainer}>
               {/* Y-axis labels */}
@@ -324,7 +343,7 @@ export default function ReportsScreen() {
 
                 {loading || monthlyTrends.length === 0 ? (
                   <View style={styles.chartPlaceholder}>
-                    <Text style={styles.placeholderText}>Loading trends...</Text>
+                    <Text style={styles.placeholderText}>{t('reports.loadingTrends')}</Text>
                   </View>
                 ) : (
                   <>
@@ -397,11 +416,11 @@ export default function ReportsScreen() {
             <View style={styles.legend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: Colors.chartPurple }]} />
-                <Text style={styles.legendText}>Actual Spending</Text>
+                <Text style={styles.legendText}>{t('reports.actualSpending')}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: Colors.chartCyan }]} />
-                <Text style={styles.legendText}>Budget Target</Text>
+                <Text style={styles.legendText}>{t('reports.budgetTarget')}</Text>
               </View>
             </View>
           </View>
@@ -410,8 +429,8 @@ export default function ReportsScreen() {
         {/* Compare Tab */}
         {activeTab === 'compare' && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Compare Periods</Text>
-            <Text style={styles.cardSubtitle}>Coming soon...</Text>
+            <Text style={styles.cardTitle}>{t('reports.comparePeriods')}</Text>
+            <Text style={styles.cardSubtitle}>{t('reports.comingSoon')}</Text>
           </View>
         )}
 
@@ -420,11 +439,11 @@ export default function ReportsScreen() {
           <View style={styles.card}>
             <View style={styles.headerRow}>
               <View>
-                <Text style={styles.cardTitle}>Analysis</Text>
+                <Text style={styles.cardTitle}>{t('reports.analysis')}</Text>
                 <Text style={styles.periodIndicator}>
-                  {period === 'week' && 'Last 7 Days'}
-                  {period === 'month' && 'This Month'}
-                  {period === 'year' && 'This Year'}
+                  {period === 'week' && t('reports.lastSevenDays')}
+                  {period === 'month' && t('reports.thisMonth')}
+                  {period === 'year' && t('reports.thisYear')}
                 </Text>
               </View>
               
@@ -435,7 +454,7 @@ export default function ReportsScreen() {
                   onPress={() => setPeriod('month')}
                 >
                   <Text style={[styles.periodButtonText, period === 'month' && styles.periodButtonTextActive]}>
-                    Monthly
+                    {t('reports.monthly')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -443,7 +462,7 @@ export default function ReportsScreen() {
                   onPress={() => setPeriod('week')}
                 >
                   <Text style={[styles.periodButtonText, period === 'week' && styles.periodButtonTextActive]}>
-                    Weekly
+                    {t('reports.weekly')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -451,7 +470,7 @@ export default function ReportsScreen() {
                   onPress={() => setPeriod('year')}
                 >
                   <Text style={[styles.periodButtonText, period === 'year' && styles.periodButtonTextActive]}>
-                    Yearly
+                    {t('reports.yearly')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -464,14 +483,14 @@ export default function ReportsScreen() {
             ) : spendingData.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name="pie-chart-outline" size={48} color={Colors.textSecondary} />
-                <Text style={styles.emptyText}>暂无支出数据</Text>
+                <Text style={styles.emptyText}>{t('reports.noData')}</Text>
               </View>
             ) : (
               <>
                 {/* Spending Summary with Pie Chart */}
                 <View style={styles.spendingSummary}>
                   <View style={styles.summaryHeader}>
-                    <Text style={styles.summaryTitle}>Total Expense</Text>
+                    <Text style={styles.summaryTitle}>{t('reports.totalExpense')}</Text>
                     <Text style={styles.summaryTotal}>{currencySymbol}{totalSpent.toFixed(2)}</Text>
                   </View>
 
@@ -573,8 +592,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  incomeCard: {
-    backgroundColor: Colors.success,
+  budgetCard: {
+    backgroundColor: Colors.primary,
   },
   spentCard: {
     backgroundColor: Colors.error,

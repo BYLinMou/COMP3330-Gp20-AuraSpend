@@ -29,7 +29,7 @@ import {
 import { getItemsByTransaction, type ItemRow } from '@/src/services/items';
 import { getCategories, type Category } from '@/src/services/categories';
 import { getPaymentMethods, type PaymentMethod } from '@/src/services/payment-methods';
-import { getProfile } from '@/src/services/profiles';
+import { getMonthlyBudgetAmount } from '@/src/services/budgets';
 import { useCurrency } from '@/src/providers/CurrencyProvider';
 
 type FilterType = 'all' | 'income' | 'expense';
@@ -62,7 +62,7 @@ export default function AllTransactionsScreen() {
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [transactionItems, setTransactionItems] = useState<Record<string, ItemRow[]>>({});
-  const [profileIncome, setProfileIncome] = useState<number>(0);
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(0);
   const blurAnimRef = React.useRef<{ [key: string]: Animated.Value }>({});
   
   // Advanced filters
@@ -80,7 +80,7 @@ export default function AllTransactionsScreen() {
   useEffect(() => {
     fetchTransactions();
     fetchFilterOptions();
-    fetchProfileIncome();
+    fetchBudget();
   }, []);
 
   useEffect(() => {
@@ -116,12 +116,12 @@ export default function AllTransactionsScreen() {
     }
   };
 
-  const fetchProfileIncome = async () => {
+  const fetchBudget = async () => {
     try {
-      const profile = await getProfile();
-      setProfileIncome(profile?.income || 0);
+      const budget = await getMonthlyBudgetAmount();
+      setMonthlyBudget(budget);
     } catch (error) {
-      console.error('Failed to fetch profile income:', error);
+      console.error('Failed to fetch budget:', error);
     }
   };
 
@@ -236,9 +236,8 @@ export default function AllTransactionsScreen() {
 
   const stats = getTransactionStats(filteredTransactions);
   
-  // Use profile income if available, otherwise use calculated income
-  const displayIncome = profileIncome || stats.totalIncome;
-  const displayBalance = displayIncome - stats.totalExpense;
+  // Balance = budget - expenses
+  const displayBalance = monthlyBudget - stats.totalExpense;
 
   const renderFilterButton = (type: FilterType, label: string) => (
     <TouchableOpacity
@@ -528,9 +527,9 @@ export default function AllTransactionsScreen() {
         {/* Statistics Summary */}
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Income</Text>
+            <Text style={styles.statLabel}>Budget</Text>
             <Text style={[styles.statValue, styles.incomeAmount]}>
-              ${displayIncome.toFixed(2)}
+              ${monthlyBudget.toFixed(2)}
             </Text>
           </View>
           <View style={styles.statDivider} />

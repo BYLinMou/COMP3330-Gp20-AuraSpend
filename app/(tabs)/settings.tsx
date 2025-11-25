@@ -10,6 +10,7 @@ import { RefreshableScrollView } from '../../components/refreshable-scroll-view'
 import { supabase } from '../../src/services/supabase';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { useCurrency } from '../../src/providers/CurrencyProvider';
+import { useLanguage } from '../../src/providers/LanguageProvider';
 import { 
   saveOpenAIConfig, 
   getOpenAIConfig, 
@@ -63,6 +64,7 @@ import { getProfile, updateProfile } from '../../src/services/profiles';
 export default function SettingsScreen() {
   const { session } = useAuth();
   const { refreshCurrency } = useCurrency();
+  const { currentLanguage, changeLanguage, t } = useLanguage();
   
   console.log('SettingsScreen mounted, session:', !!session);
   
@@ -70,8 +72,8 @@ export default function SettingsScreen() {
   const [email, setEmail] = useState('');
   const [currency, setCurrency] = useState('USD ($)');
   const [language, setLanguage] = useState('English');
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [monthlyBudget, setMonthlyBudget] = useState('');
-  const [monthlyIncome, setMonthlyIncome] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBudgetMonth, setSelectedBudgetMonth] = useState(() => getMonthStartKey(new Date()));
   const [budgetMonthOptions, setBudgetMonthOptions] = useState<string[]>(() => generateMonthKeyRange());
@@ -122,6 +124,12 @@ export default function SettingsScreen() {
     const currencyMatch = currencyOptions.find((c) => c.code === selectedCurrency);
     return currencyMatch?.symbol || '$';
   }, [currencyOptions, selectedCurrency]);
+
+  // Language options
+  const languageOptions = [
+    { code: 'en', name: 'English' },
+    { code: 'zh', name: '中文' },
+  ];
 
   // Collapsible section state - tracks which section is expanded, all collapsed by default
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -217,6 +225,14 @@ export default function SettingsScreen() {
     loadCurrencies();
     loadProfile();
   }, []);
+
+  // Sync language display name with current language
+  useEffect(() => {
+    const langOption = languageOptions.find(l => l.code === currentLanguage);
+    if (langOption) {
+      setLanguage(langOption.name);
+    }
+  }, [currentLanguage]);
 
   useEffect(() => {
     loadBudgetData();
@@ -340,21 +356,34 @@ export default function SettingsScreen() {
       // username & primary currency from profile table
       if (profile?.username != null) setFullName(profile.username);
       if (profile?.primary_currency != null) setSelectedCurrency(profile.primary_currency);
-      if (profile?.income != null) setMonthlyIncome(profile.income.toString());
     } catch (error) {
       console.error('Failed to load profile:', error);
     }
   };
 
+  const handleLanguageChange = async (langCode: string) => {
+    try {
+      await changeLanguage(langCode);
+      const langOption = languageOptions.find(l => l.code === langCode);
+      if (langOption) {
+        setLanguage(langOption.name);
+      }
+      setShowLanguageModal(false);
+    } catch (error) {
+      console.error('Failed to change language:', error);
+      Alert.alert(t('settings.alerts.error'), t('settings.alerts.failedToSave', { item: 'language' }));
+    }
+  };
+
   const handleSaveBudget = async () => {
     if (!session) {
-      Alert.alert('Not signed in', 'Please sign in to update your budget.');
+      Alert.alert(t('settings.alerts.notSignedIn'), t('settings.alerts.pleaseSignIn', { item: 'budget' }));
       return;
     }
 
     const amount = parseFloat(monthlyBudget);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid Budget', 'Please enter a valid budget amount');
+      Alert.alert(t('settings.alerts.invalidBudget'), t('settings.alerts.enterValidBudget'));
       return;
     }
 
@@ -366,16 +395,16 @@ export default function SettingsScreen() {
         updateMonthOptions(updated);
         return updated;
       });
-      Alert.alert('Success', `${formatBudgetMonth(selectedBudgetMonth)} budget updated successfully`);
+      Alert.alert(t('settings.alerts.success'), t('settings.alerts.budgetUpdated', { month: formatBudgetMonth(selectedBudgetMonth) }));
     } catch (error) {
       console.error('Failed to save budget:', error);
-      Alert.alert('Error', 'Failed to save budget. Please try again.');
+      Alert.alert(t('settings.alerts.error'), t('settings.alerts.failedToSave', { item: 'budget' }));
     }
   };
 
   const handleSaveProfile = async () => {
     if (!session) {
-      Alert.alert('Not signed in', 'Please sign in to update your profile.');
+      Alert.alert(t('settings.alerts.notSignedIn'), t('settings.alerts.pleaseSignIn', { item: 'profile' }));
       return;
     }
 
@@ -383,7 +412,6 @@ export default function SettingsScreen() {
       const updates = {
         username: fullName.trim() === '' ? null : fullName.trim(),
         primary_currency: selectedCurrency || null,
-        income: monthlyIncome.trim() === '' ? null : parseFloat(monthlyIncome),
       } as any; // service has proper typing
 
       await updateProfile(updates);
@@ -394,16 +422,16 @@ export default function SettingsScreen() {
       // Refresh global currency after profile update
       await refreshCurrency();
 
-      Alert.alert('Success', 'Profile updated successfully');
+      Alert.alert(t('settings.alerts.success'), t('settings.alerts.profileUpdated'));
     } catch (error: any) {
       console.error('Failed to save profile:', error);
-      Alert.alert('Error', error?.message || 'Failed to save profile');
+      Alert.alert(t('settings.alerts.error'), error?.message || t('settings.alerts.failedToSave', { item: 'profile' }));
     }
   };
 
   const handleFetchModels = async () => {
     if (!openaiUrl.trim() || !openaiKey.trim()) {
-      Alert.alert('Validation Error', 'Please enter both API URL and API Key');
+      Alert.alert(t('settings.alerts.validationError'), t('settings.alerts.enterBothApiCredentials'));
       return;
     }
 
@@ -415,7 +443,7 @@ export default function SettingsScreen() {
       setAvailableModels(models);
       setFetchedModelsCount(models.length);
     } catch (error: any) {
-      Alert.alert('Connection Failed', error.message || 'Failed to fetch models');
+      Alert.alert(t('settings.alerts.connectionFailed'), error.message || t('settings.alerts.failedToFetchModels'));
       setAvailableModels([]);
       setFetchedModelsCount(0);
     } finally {
@@ -440,7 +468,7 @@ export default function SettingsScreen() {
   const handleAddCategory = async () => {
     const name = newCategoryName.trim();
     if (!name) {
-      Alert.alert('Validation Error', 'Please enter a category name');
+      Alert.alert(t('settings.alerts.validationError'), t('settings.alerts.enterCategoryName'));
       return;
     }
     try {
@@ -450,7 +478,7 @@ export default function SettingsScreen() {
       // realtime will refresh; fallback refresh now
       await loadCategories();
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Failed to add category');
+      Alert.alert(t('settings.alerts.error'), e?.message || t('settings.alerts.failedToSave', { item: 'category' }));
     }
   };
 
@@ -460,19 +488,19 @@ export default function SettingsScreen() {
     
     if (!session) {
       console.log('No session, showing error');
-      Alert.alert('Error', 'You must be logged in to delete categories');
+      Alert.alert(t('settings.alerts.error'), t('settings.alerts.mustBeLoggedIn'));
       return;
     }
     
     console.log('Showing confirmation dialog');
 
     Alert.alert(
-      'Delete Category',
-      `Are you sure you want to delete "${name}"?`,
+      t('settings.categories.deleteTitle'),
+      t('settings.categories.deleteMessage', { name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('settings.categories.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('settings.categories.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -485,7 +513,7 @@ export default function SettingsScreen() {
               console.log('Categories reloaded successfully');
             } catch (e: any) {
               console.error('Error during delete:', e);
-              Alert.alert('Error', e?.message || 'Failed to delete category');
+              Alert.alert(t('settings.alerts.error'), e?.message || t('settings.alerts.failedToSave', { item: 'category' }));
             }
           },
         },
@@ -505,19 +533,19 @@ export default function SettingsScreen() {
 
     if (!openaiUrl.trim() || !openaiKey.trim()) {
       console.log('[Settings] Validation failed: Missing URL or Key');
-      Alert.alert('Validation Error', 'Please enter both API URL and API Key');
+      Alert.alert(t('settings.alerts.validationError'), t('settings.alerts.enterBothApiCredentials'));
       return;
     }
 
     if (!receiptModel) {
       console.log('[Settings] Validation failed: Missing receipt model');
-      Alert.alert('Validation Error', 'Please select a receipt model');
+      Alert.alert(t('settings.alerts.validationError'), t('settings.alerts.selectReceiptModel'));
       return;
     }
 
     if (!chatModel) {
       console.log('[Settings] Validation failed: Missing chat model');
-      Alert.alert('Validation Error', 'Please select a chat model');
+      Alert.alert(t('settings.alerts.validationError'), t('settings.alerts.selectChatModel'));
       return;
     }
 
@@ -539,26 +567,26 @@ export default function SettingsScreen() {
       console.log('[Settings] Calling saveOpenAIConfig...');
       await saveOpenAIConfig(config);
       console.log('[Settings] saveOpenAIConfig completed successfully');
-      Alert.alert('Success', 'OpenAI configuration saved successfully!');
+      Alert.alert(t('settings.alerts.success'), t('settings.alerts.configSaved'));
     } catch (error: any) {
       console.error('[Settings] Error saving config:', error);
-      Alert.alert('Error', error.message || 'Failed to save configuration');
+      Alert.alert(t('settings.alerts.error'), error.message || t('settings.alerts.failedToSave', { item: 'configuration' }));
     }
   };
 
   function handleSignOut() {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      t('settings.signOut.title'),
+      t('settings.signOut.message'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('settings.signOut.cancel'), style: 'cancel' },
         {
-          text: 'Sign Out',
+          text: t('settings.signOut.confirm'),
           style: 'destructive',
           onPress: async () => {
             const { error } = await supabase.auth.signOut();
             if (error) {
-              Alert.alert('Info', 'Running in demo mode. To enable authentication, configure your Supabase credentials.');
+              Alert.alert('Info', t('settings.signOut.demoMode'));
             }
           },
         },
@@ -609,39 +637,39 @@ export default function SettingsScreen() {
                 color={Colors.primary}
               />
               <Ionicons name="person-outline" size={24} color={Colors.textPrimary} />
-              <Text style={styles.collapsibleHeaderTitle}>Profile Settings</Text>
+              <Text style={styles.collapsibleHeaderTitle}>{t('settings.profile.title')}</Text>
             </View>
           </TouchableOpacity>
 
           {expandedSection === 'profile' && (
             <View style={styles.collapsibleContent}>
               <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>User Name</Text>
+            <Text style={styles.inputLabel}>{t('settings.profile.userName')}</Text>
             <TextInput
               style={styles.textInput}
               value={fullName}
               onChangeText={setFullName}
-              placeholder="Enter your name"
+              placeholder={t('settings.profile.userNamePlaceholder')}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email Address</Text>
+            <Text style={styles.inputLabel}>{t('settings.profile.email')}</Text>
             <TextInput
               style={styles.textInput}
               value={email}
               onChangeText={setEmail}
-              placeholder="Enter your email"
+              placeholder={t('settings.profile.emailPlaceholder')}
               keyboardType="email-address"
               autoCapitalize="none"
               editable={false}
             />
-            <Text style={styles.helperText}>Your login email cannot be changed here. Contact support to update your email.</Text>
+            <Text style={styles.helperText}>{t('settings.profile.emailHelper')}</Text>
           </View>
 
           <View style={styles.row}>
             <View style={[styles.inputGroup, styles.halfWidth]}>
-              <Text style={styles.inputLabel}>Primary Currency</Text>
+              <Text style={styles.inputLabel}>{t('settings.profile.currency')}</Text>
               <TouchableOpacity 
                 style={styles.selectInput}
                 onPress={() => setShowCurrencyModal(true)}
@@ -649,15 +677,18 @@ export default function SettingsScreen() {
                 <Text style={selectedCurrency ? styles.selectText : styles.selectPlaceholder}>
                   {selectedCurrency 
                     ? `${currencyOptions.find(c => c.code === selectedCurrency)?.symbol}  ${selectedCurrency}`
-                    : 'Select currency'}
+                    : t('settings.profile.currencyPlaceholder')}
                 </Text>
                 <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={[styles.inputGroup, styles.halfWidth]}>
-              <Text style={styles.inputLabel}>Language</Text>
-              <TouchableOpacity style={styles.selectInput}>
+              <Text style={styles.inputLabel}>{t('settings.profile.language')}</Text>
+              <TouchableOpacity 
+                style={styles.selectInput}
+                onPress={() => setShowLanguageModal(true)}
+              >
                 <Text style={styles.selectText}>{language}</Text>
                 <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
               </TouchableOpacity>
@@ -665,7 +696,7 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Monthly Budget</Text>
+            <Text style={styles.inputLabel}>{t('settings.profile.monthlyBudget')}</Text>
             <View style={styles.amountInput}>
               <TouchableOpacity
                 style={styles.monthChip}
@@ -686,22 +717,8 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Monthly Income</Text>
-            <View style={styles.amountInput}>
-              <Text style={styles.currencySymbol}>{currencySymbol}</Text>
-              <TextInput
-                style={styles.amountField}
-                value={monthlyIncome}
-                onChangeText={setMonthlyIncome}
-                keyboardType="numeric"
-                placeholder="0"
-              />
-            </View>
-          </View>
-
           <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-            <Text style={styles.saveButtonText}>Save Profile Changes</Text>
+            <Text style={styles.saveButtonText}>{t('settings.profile.saveButton')}</Text>
           </TouchableOpacity>
             </View>
           )}
@@ -720,14 +737,14 @@ export default function SettingsScreen() {
                 color={Colors.primary}
               />
               <Ionicons name="sparkles-outline" size={24} color={Colors.textPrimary} />
-              <Text style={styles.collapsibleHeaderTitle}>OpenAI Configuration</Text>
+              <Text style={styles.collapsibleHeaderTitle}>{t('settings.openai.title')}</Text>
             </View>
           </TouchableOpacity>
 
           {expandedSection === 'openai' && (
             <View style={styles.collapsibleContent}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>API Base URL</Text>
+                <Text style={styles.inputLabel}>{t('settings.openai.apiUrl')}</Text>
                 <TextInput
                   style={styles.textInput}
                   value={openaiUrl}
@@ -738,7 +755,7 @@ export default function SettingsScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>API Key</Text>
+                <Text style={styles.inputLabel}>{t('settings.openai.apiKey')}</Text>
                 <View style={styles.keyInputContainer}>
                   <TextInput
                     style={styles.keyInput}
@@ -773,7 +790,7 @@ export default function SettingsScreen() {
                       size={20} 
                       color={Colors.primary} 
                     />
-                    <Text style={styles.collapsibleHeaderTitle}>Primary & Fallback Models</Text>
+                    <Text style={styles.collapsibleHeaderTitle}>{t('settings.openai.primaryFallback')}</Text>
                   </View>
                   {(receiptModel || chatModel || fallbackModel) && (
                     <View style={styles.modelIndicator}>
@@ -793,12 +810,12 @@ export default function SettingsScreen() {
                         disabled={loadingModels}
                       >
                         <Ionicons name="refresh-outline" size={16} color={Colors.white} />
-                        <Text style={styles.signOutPillText}>Fetch Available Models</Text>
+                        <Text style={styles.signOutPillText}>{t('settings.openai.fetchModels')}</Text>
                         {loadingModels && <ActivityIndicator color={Colors.white} style={{ marginLeft: 8 }} />}
                       </TouchableOpacity>
                       {fetchedModelsCount > 0 && (
                         <View style={[styles.versionPill, { marginTop: 12 }]}>
-                          <Text style={styles.versionPillText}>Found {fetchedModelsCount} models</Text>
+                          <Text style={styles.versionPillText}>{t('settings.openai.foundModels', { count: fetchedModelsCount })}</Text>
                         </View>
                       )}
                     </View>
@@ -808,7 +825,7 @@ export default function SettingsScreen() {
                       <>
                         <View style={[styles.inputGroup, {paddingVertical: 8, paddingHorizontal: 10}]}> 
                           <Text style={styles.inputLabel}>
-                            Receipt Model <Text style={styles.required}>*</Text>
+                            {t('settings.openai.receiptModel')} <Text style={styles.required}>{t('settings.openai.required')}</Text>
                           </Text>
                           <TouchableOpacity 
                             style={styles.selectInput}
@@ -816,16 +833,16 @@ export default function SettingsScreen() {
                             disabled={availableModels.length === 0}
                           >
                             <Text style={receiptModel ? styles.selectText : styles.selectPlaceholder}>
-                              {receiptModel || (availableModels.length === 0 ? 'Fetch models first' : 'Select receipt model')}
+                              {receiptModel || (availableModels.length === 0 ? t('settings.openai.fetchFirst') : t('settings.openai.selectModel', { type: t('settings.openai.receiptModel').toLowerCase() }))}
                             </Text>
                             <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
                           </TouchableOpacity>
-                          <Text style={styles.helperText}>Primary model for receipt processing</Text>
+                          <Text style={styles.helperText}>{t('settings.openai.receiptModelHelper')}</Text>
                         </View>
 
                         <View style={[styles.inputGroup, {paddingVertical: 8, paddingHorizontal: 10}]}> 
                           <Text style={styles.inputLabel}>
-                            Chat Model <Text style={styles.required}>*</Text>
+                            {t('settings.openai.chatModel')} <Text style={styles.required}>{t('settings.openai.required')}</Text>
                           </Text>
                           <TouchableOpacity 
                             style={styles.selectInput}
@@ -833,26 +850,26 @@ export default function SettingsScreen() {
                             disabled={availableModels.length === 0}
                           >
                             <Text style={chatModel ? styles.selectText : styles.selectPlaceholder}>
-                              {chatModel || (availableModels.length === 0 ? 'Fetch models first' : 'Select chat model')}
+                              {chatModel || (availableModels.length === 0 ? t('settings.openai.fetchFirst') : t('settings.openai.selectModel', { type: t('settings.openai.chatModel').toLowerCase() }))}
                             </Text>
                             <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
                           </TouchableOpacity>
-                          <Text style={styles.helperText}>Primary model for chat & AI features</Text>
+                          <Text style={styles.helperText}>{t('settings.openai.chatModelHelper')}</Text>
                         </View>
 
                         <View style={[styles.inputGroup, {paddingVertical: 8, paddingHorizontal: 8}]}> 
-                          <Text style={styles.inputLabel}>Fallback Model</Text>
+                          <Text style={styles.inputLabel}>{t('settings.openai.fallbackModel')}</Text>
                           <TouchableOpacity 
                             style={styles.selectInput}
                             onPress={() => availableModels.length > 0 && setShowFallbackModelModal(true)}
                             disabled={availableModels.length === 0}
                           >
                             <Text style={fallbackModel ? styles.selectText : styles.selectPlaceholder}>
-                              {fallbackModel || (availableModels.length === 0 ? 'Fetch models first' : 'Select fallback model')}
+                              {fallbackModel || (availableModels.length === 0 ? t('settings.openai.fetchFirst') : t('settings.openai.selectModel', { type: t('settings.openai.fallbackModel').toLowerCase() }))}
                             </Text>
                             <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
                           </TouchableOpacity>
-                          <Text style={styles.helperText}>Optional backup model for both features</Text>
+                          <Text style={styles.helperText}>{t('settings.openai.fallbackModelHelper')}</Text>
                         </View>
                       </>
                     )}
@@ -861,7 +878,7 @@ export default function SettingsScreen() {
                       <View style={styles.infoBox}>
                         <Ionicons name="information-circle-outline" size={20} color={Colors.primary} />
                         <Text style={styles.infoText}>
-                          Enter your OpenAI credentials and fetch models to configure AI features.
+                          {t('settings.openai.infoText')}
                         </Text>
                       </View>
                     )}
@@ -874,7 +891,7 @@ export default function SettingsScreen() {
                 style={[styles.saveButton, styles.saveOpenaiButton]}
                 onPress={handleSaveOpenAIConfig}
               >
-                <Text style={styles.saveButtonText}>Save OpenAI Configuration</Text>
+                <Text style={styles.saveButtonText}>{t('settings.openai.saveButton')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -893,30 +910,30 @@ export default function SettingsScreen() {
                 color={Colors.primary}
               />
               <Ionicons name="pricetag-outline" size={24} color={Colors.textPrimary} />
-              <Text style={styles.collapsibleHeaderTitle}>Custom Categories</Text>
+              <Text style={styles.collapsibleHeaderTitle}>{t('settings.categories.title')}</Text>
             </View>
           </TouchableOpacity>
 
           {expandedSection === 'categories' && (
             <View style={styles.collapsibleContent}>
-              <Text style={styles.sectionDescription}>Personalize your expense categories</Text>
+              <Text style={styles.sectionDescription}>{t('settings.categories.description')}</Text>
 
               <View style={styles.addCategoryContainer}>
                 <TextInput
                   style={styles.addCategoryInput}
-                  placeholder="Add new category..."
+                  placeholder={t('settings.categories.placeholder')}
                   value={newCategoryName}
                   onChangeText={setNewCategoryName}
                 />
                 <TouchableOpacity style={styles.addButton} onPress={handleAddCategory} disabled={!session}>
-                  <Text style={styles.addButtonText}>Add</Text>
+                  <Text style={styles.addButtonText}>{t('settings.categories.addButton')}</Text>
                 </TouchableOpacity>
               </View>
 
               {loadingCategories ? (
                 <ActivityIndicator />
               ) : categories.length === 0 ? (
-                <Text style={styles.helperText}>No categories yet. Add your first one!</Text>
+                <Text style={styles.helperText}>{t('settings.categories.noCategories')}</Text>
               ) : (
                 <View style={styles.categoryTags}>
                   {categories.map((category) => (
@@ -959,7 +976,7 @@ export default function SettingsScreen() {
                 color={Colors.primary}
               />
               <Ionicons name="shield-checkmark-outline" size={24} color={Colors.textPrimary} />
-              <Text style={styles.collapsibleHeaderTitle}>Data & Privacy</Text>
+              <Text style={styles.collapsibleHeaderTitle}>{t('settings.privacy.title')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -967,17 +984,17 @@ export default function SettingsScreen() {
             <View style={styles.collapsibleContent}>
               <TouchableOpacity style={styles.menuItem}>
                 <Ionicons name="download-outline" size={20} color={Colors.textPrimary} />
-                <Text style={styles.menuItemText}>Export My Data</Text>
+                <Text style={styles.menuItemText}>{t('settings.privacy.exportData')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]}>
                 <Ionicons name="lock-closed-outline" size={20} color={Colors.textPrimary} />
-                <Text style={styles.menuItemText}>Privacy Settings</Text>
+                <Text style={styles.menuItemText}>{t('settings.privacy.privacySettings')}</Text>
               </TouchableOpacity>
 
               <View style={styles.privacyInfo}>
                 <Text style={styles.privacyText}>
-                  Your data is encrypted and securely stored. We never share your personal financial information with third parties.
+                  {t('settings.privacy.privacyText')}
                 </Text>
                 {/* <Text style={styles.backupText}>Last backup: Today at 3:24 PM</Text> */}
               </View>
@@ -998,7 +1015,7 @@ export default function SettingsScreen() {
                 color={Colors.primary}
               />
               <Ionicons name="notifications-outline" size={24} color={Colors.textPrimary} />
-              <Text style={styles.collapsibleHeaderTitle}>Notifications</Text>
+              <Text style={styles.collapsibleHeaderTitle}>{t('settings.notifications.title')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -1006,8 +1023,8 @@ export default function SettingsScreen() {
             <View style={styles.collapsibleContent}>
               <View style={styles.settingItem}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>Budget Alerts</Text>
-                  <Text style={styles.settingDescription}>Get notified when approaching budget limits</Text>
+                  <Text style={styles.settingTitle}>{t('settings.notifications.budgetAlerts')}</Text>
+                  <Text style={styles.settingDescription}>{t('settings.notifications.budgetAlertsDesc')}</Text>
                 </View>
                 <Switch
                   value={budgetAlerts}
@@ -1019,8 +1036,8 @@ export default function SettingsScreen() {
 
               <View style={styles.settingItem}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>Daily Reminders</Text>
-                  <Text style={styles.settingDescription}>Remind me to log expenses daily</Text>
+                  <Text style={styles.settingTitle}>{t('settings.notifications.dailyReminders')}</Text>
+                  <Text style={styles.settingDescription}>{t('settings.notifications.dailyRemindersDesc')}</Text>
                 </View>
                 <Switch
                   value={dailyReminders}
@@ -1032,8 +1049,8 @@ export default function SettingsScreen() {
 
               <View style={styles.settingItem}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>Weekly Reports</Text>
-                  <Text style={styles.settingDescription}>Receive weekly spending summaries</Text>
+                  <Text style={styles.settingTitle}>{t('settings.notifications.weeklyReports')}</Text>
+                  <Text style={styles.settingDescription}>{t('settings.notifications.weeklyReportsDesc')}</Text>
                 </View>
                 <Switch
                   value={weeklyReports}
@@ -1045,8 +1062,8 @@ export default function SettingsScreen() {
 
               <View style={[styles.settingItem, { borderBottomWidth: 0 }]}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>Marketing Emails</Text>
-                  <Text style={styles.settingDescription}>Tips and product updates</Text>
+                  <Text style={styles.settingTitle}>{t('settings.notifications.marketingEmails')}</Text>
+                  <Text style={styles.settingDescription}>{t('settings.notifications.marketingEmailsDesc')}</Text>
                 </View>
                 <Switch
                   value={marketingEmails}
@@ -1072,7 +1089,7 @@ export default function SettingsScreen() {
                 color={Colors.primary}
               />
               <Ionicons name="settings-outline" size={24} color={Colors.textPrimary} />
-              <Text style={styles.collapsibleHeaderTitle}>App Preferences</Text>
+              <Text style={styles.collapsibleHeaderTitle}>{t('settings.preferences.title')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -1080,8 +1097,8 @@ export default function SettingsScreen() {
             <View style={styles.collapsibleContent}>
               <View style={styles.settingItem}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>Dark Mode</Text>
-                  <Text style={styles.settingDescription}>Switch to dark theme</Text>
+                  <Text style={styles.settingTitle}>{t('settings.preferences.darkMode')}</Text>
+                  <Text style={styles.settingDescription}>{t('settings.preferences.darkModeDesc')}</Text>
                 </View>
                 <Switch
                   value={darkMode}
@@ -1093,8 +1110,8 @@ export default function SettingsScreen() {
 
               <View style={styles.settingItem}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>Biometric Login</Text>
-                  <Text style={styles.settingDescription}>Use fingerprint or face ID</Text>
+                  <Text style={styles.settingTitle}>{t('settings.preferences.biometricLogin')}</Text>
+                  <Text style={styles.settingDescription}>{t('settings.preferences.biometricLoginDesc')}</Text>
                 </View>
                 <Switch
                   value={biometricLogin}
@@ -1106,8 +1123,8 @@ export default function SettingsScreen() {
 
               <View style={[styles.settingItem, { borderBottomWidth: 0 }]}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>Auto-Sync</Text>
-                  <Text style={styles.settingDescription}>Sync across all devices</Text>
+                  <Text style={styles.settingTitle}>{t('settings.preferences.autoSync')}</Text>
+                  <Text style={styles.settingDescription}>{t('settings.preferences.autoSyncDesc')}</Text>
                 </View>
                 <Switch
                   value={autoSync}
@@ -1133,30 +1150,30 @@ export default function SettingsScreen() {
                 color={Colors.primary}
               />
               <Ionicons name="help-circle-outline" size={24} color={Colors.textPrimary} />
-              <Text style={styles.collapsibleHeaderTitle}>Help & Support</Text>
+              <Text style={styles.collapsibleHeaderTitle}>{t('settings.support.title')}</Text>
             </View>
           </TouchableOpacity>
 
           {expandedSection === 'support' && (
             <View style={styles.collapsibleContent}>
               <TouchableOpacity style={styles.menuItem}>
-                <Text style={styles.menuItemText}>FAQ & Help Center</Text>
+                <Text style={styles.menuItemText}>{t('settings.support.faq')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.menuItem}>
-                <Text style={styles.menuItemText}>Contact Support</Text>
+                <Text style={styles.menuItemText}>{t('settings.support.contact')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.menuItem}>
-                <Text style={styles.menuItemText}>App Tutorial</Text>
+                <Text style={styles.menuItemText}>{t('settings.support.tutorial')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.menuItem}>
-                <Text style={styles.menuItemText}>Terms of Service</Text>
+                <Text style={styles.menuItemText}>{t('settings.support.terms')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]}>
-                <Text style={styles.menuItemText}>Privacy Policy</Text>
+                <Text style={styles.menuItemText}>{t('settings.support.privacy')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -1166,7 +1183,7 @@ export default function SettingsScreen() {
         <View style={{ alignItems: 'center', marginTop: 8 }}>
           <TouchableOpacity style={styles.signOutPill} onPress={handleSignOut}>
             <Ionicons name="log-out-outline" size={16} color={Colors.white} />
-            <Text style={styles.signOutPillText}>Sign Out</Text>
+            <Text style={styles.signOutPillText}>{t('settings.signOut.button')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -1174,7 +1191,7 @@ export default function SettingsScreen() {
         <View style={{ alignItems: 'center', marginTop: 12 }}>
           <View style={styles.versionPill}>
             <Text style={styles.versionPillText}>
-              AuraSpend v{Constants.expoConfig?.extra?.appVersion || Constants.expoConfig?.version || '0.0.0'}
+              {t('settings.version', { version: Constants.expoConfig?.extra?.appVersion || Constants.expoConfig?.version || '0.0.0' })}
             </Text>
           </View>
         </View>
@@ -1197,7 +1214,7 @@ export default function SettingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modelSelectionModalHeader}>
-              <Text style={styles.modalTitle}>Select Receipt Model</Text>
+              <Text style={styles.modalTitle}>{t('settings.modals.selectReceiptModel')}</Text>
               <TouchableOpacity onPress={() => setShowReceiptModelModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
@@ -1208,7 +1225,7 @@ export default function SettingsScreen() {
               <Ionicons name="search-outline" size={20} color={Colors.textSecondary} />
               <TextInput
                 style={styles.modalSearchInput}
-                placeholder="Search models..."
+                placeholder={t('settings.modals.searchPlaceholder')}
                 value={receiptModelSearch}
                 onChangeText={setReceiptModelSearch}
                 onFocus={() => setReceiptSearchFocused(true)}
@@ -1263,8 +1280,8 @@ export default function SettingsScreen() {
               ).length === 0 && (
                 <View style={styles.emptySearchContainer}>
                   <Ionicons name="search-outline" size={32} color={Colors.textSecondary} />
-                  <Text style={styles.emptySearchText}>No models found</Text>
-                  <Text style={styles.emptySearchSubtext}>Try searching with different keywords</Text>
+                  <Text style={styles.emptySearchText}>{t('settings.modals.noModelsFound')}</Text>
+                  <Text style={styles.emptySearchSubtext}>{t('settings.modals.tryDifferentKeywords')}</Text>
                 </View>
               )}
             </ScrollView>
@@ -1287,7 +1304,7 @@ export default function SettingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modelSelectionModalHeader}>
-              <Text style={styles.modalTitle}>Select Chat Model</Text>
+              <Text style={styles.modalTitle}>{t('settings.modals.selectChatModel')}</Text>
               <TouchableOpacity onPress={() => setShowChatModelModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
@@ -1298,7 +1315,7 @@ export default function SettingsScreen() {
               <Ionicons name="search-outline" size={20} color={Colors.textSecondary} />
               <TextInput
                 style={styles.modalSearchInput}
-                placeholder="Search models..."
+                placeholder={t('settings.modals.searchPlaceholder')}
                 value={chatModelSearch}
                 onChangeText={setChatModelSearch}
                 onFocus={() => setChatSearchFocused(true)}
@@ -1353,8 +1370,8 @@ export default function SettingsScreen() {
               ).length === 0 && (
                 <View style={styles.emptySearchContainer}>
                   <Ionicons name="search-outline" size={32} color={Colors.textSecondary} />
-                  <Text style={styles.emptySearchText}>No models found</Text>
-                  <Text style={styles.emptySearchSubtext}>Try searching with different keywords</Text>
+                  <Text style={styles.emptySearchText}>{t('settings.modals.noModelsFound')}</Text>
+                  <Text style={styles.emptySearchSubtext}>{t('settings.modals.tryDifferentKeywords')}</Text>
                 </View>
               )}
             </ScrollView>
@@ -1377,7 +1394,7 @@ export default function SettingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modelSelectionModalHeader}>
-              <Text style={styles.modalTitle}>Select Fallback Model</Text>
+              <Text style={styles.modalTitle}>{t('settings.modals.selectFallbackModel')}</Text>
               <TouchableOpacity onPress={() => setShowFallbackModelModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
@@ -1388,7 +1405,7 @@ export default function SettingsScreen() {
               <Ionicons name="search-outline" size={20} color={Colors.textSecondary} />
               <TextInput
                 style={styles.modalSearchInput}
-                placeholder="Search models..."
+                placeholder={t('settings.modals.searchPlaceholder')}
                 value={fallbackModelSearch}
                 onChangeText={setFallbackModelSearch}
                 onFocus={() => setFallbackSearchFocused(true)}
@@ -1419,7 +1436,7 @@ export default function SettingsScreen() {
                     styles.modalItemText,
                     !fallbackModel && styles.modalItemTextSelected
                   ]}>
-                    None
+                    {t('settings.modals.none')}
                   </Text>
                   {!fallbackModel && (
                     <Ionicons name="checkmark" size={20} color={Colors.primary} />
@@ -1469,8 +1486,8 @@ export default function SettingsScreen() {
               ).length === 0 && fallbackModelSearch !== '' && (
                 <View style={styles.emptySearchContainer}>
                   <Ionicons name="search-outline" size={32} color={Colors.textSecondary} />
-                  <Text style={styles.emptySearchText}>No models found</Text>
-                  <Text style={styles.emptySearchSubtext}>Try searching with different keywords</Text>
+                  <Text style={styles.emptySearchText}>{t('settings.modals.noModelsFound')}</Text>
+                  <Text style={styles.emptySearchSubtext}>{t('settings.modals.tryDifferentKeywords')}</Text>
                 </View>
               )}
             </ScrollView>
@@ -1488,7 +1505,7 @@ export default function SettingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Budget Month</Text>
+              <Text style={styles.modalTitle}>{t('settings.modals.selectBudgetMonth')}</Text>
               <TouchableOpacity onPress={() => setShowBudgetMonthModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
@@ -1523,8 +1540,8 @@ export default function SettingsScreen() {
                       </Text>
                       <Text style={styles.currencySubtext}>
                         {monthlyAmount != null
-                          ? `Set to ${currencySymbol}${monthlyAmount.toLocaleString()}`
-                          : 'No budget set yet'}
+                          ? t('settings.modals.setBudget', { symbol: currencySymbol, amount: monthlyAmount.toLocaleString() })
+                          : t('settings.modals.noBudgetSet')}
                       </Text>
                     </View>
                     {selectedBudgetMonth === monthKey && (
@@ -1533,6 +1550,48 @@ export default function SettingsScreen() {
                   </TouchableOpacity>
                 );
               })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={showLanguageModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLanguageModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('settings.languages.en')}/{t('settings.languages.zh')}</Text>
+              <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalList}>
+              {languageOptions.map((lang) => (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.modalItem,
+                    currentLanguage === lang.code && styles.modalItemSelected
+                  ]}
+                  onPress={() => handleLanguageChange(lang.code)}
+                >
+                  <Text style={[
+                    styles.modalItemText,
+                    currentLanguage === lang.code && styles.modalItemTextSelected
+                  ]}>
+                    {lang.name}
+                  </Text>
+                  {currentLanguage === lang.code && (
+                    <Ionicons name="checkmark" size={20} color={Colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
         </View>
@@ -1548,7 +1607,7 @@ export default function SettingsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Currency</Text>
+              <Text style={styles.modalTitle}>{t('settings.modals.selectCurrency')}</Text>
               <TouchableOpacity onPress={() => setShowCurrencyModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>

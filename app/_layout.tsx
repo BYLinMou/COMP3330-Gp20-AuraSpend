@@ -3,6 +3,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../src/providers/AuthProvider';
 import { CurrencyProvider } from '../src/providers/CurrencyProvider';
+import { LanguageProvider } from '../src/providers/LanguageProvider';
+import '../src/i18n'; // Initialize i18n
 
 function Gate() {
   const { session, loading } = useAuth();
@@ -35,9 +37,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <CurrencyProvider>
-          <Gate />
-        </CurrencyProvider>
+        <LanguageProvider>
+          <CurrencyProvider>
+            <Gate />
+          </CurrencyProvider>
+        </LanguageProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );
