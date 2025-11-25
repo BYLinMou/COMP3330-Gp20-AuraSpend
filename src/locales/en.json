@@ -1,7 +1,7 @@
 {
   "home": {
     "title": "Home",
-    "currentBalance": "Current Balance",
+    "remainingBudget": "Remaining Budget",
     "budget": "Budget",
     "spent": "Spent",
     "remaining": "Remaining",

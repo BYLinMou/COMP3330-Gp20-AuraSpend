@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Category } from './categories';
+import type { ItemRow } from './items';
 import { getProfile } from './profiles';
 
 export interface Transaction {
@@ -17,6 +18,7 @@ export interface Transaction {
   currency: string;
   // Joined data (optional)
   category?: Category;
+  items?: ItemRow[];
 }
 
 export type TransactionRealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE';
@@ -283,27 +285,64 @@ export async function getIncomeAndExpenses(
 
 /**
  * Get balances grouped by payment method for the current user
- * Note: Currently returns payment methods with placeholder balances
- * TODO: Update when payment_method tracking is added to transactions table
+ * Aggregates transaction amounts by payment method from the database
+ * Supports currency conversion if options are provided
  */
-export async function getBalancesByPaymentMethod() {
+export async function getBalancesByPaymentMethod(
+  options?: {
+    convertToUserCurrency?: (amount: number, fromCurrency: string) => Promise<{ convertedAmount: number; rate: number }>;
+    userCurrency?: string;
+  }
+) {
   try {
-    // Import payment methods service
-    const { getPaymentMethods } = await import('./payment-methods');
+    const { data: { user } } = await supabase.auth.getUser();
     
-    // Get available payment methods
-    const paymentMethods = await getPaymentMethods();
-    
-    // Create balances object with payment methods
-    // For now, we'll show some sample data until payment method tracking is implemented
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Fetch all transactions with amount, payment_method, and currency
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('amount, payment_method, currency')
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error fetching transactions for payment method balances:', error);
+      throw error;
+    }
+
     const balances: Record<string, number> = {};
     
-    // Add some common payment methods with sample balances for demonstration
-    // In production, this would query actual transaction data
-    paymentMethods.slice(0, 5).forEach((method, index) => {
-      // Sample data - replace with actual transaction queries when payment_method field is added
-      balances[method.name] = 0;
+    // Initialize with 0 for known payment methods so they appear in the list
+    const { getPaymentMethods } = await import('./payment-methods');
+    const knownMethods = await getPaymentMethods();
+    knownMethods.forEach(m => {
+        balances[m.name] = 0;
     });
+
+    // Aggregate amounts
+    for (const t of (data as { amount: number; payment_method: string | null; currency: string }[])) {
+      if (t.payment_method) {
+        let amount = t.amount;
+
+        // Convert if needed
+        if (options?.convertToUserCurrency && options?.userCurrency && t.currency && t.currency !== options.userCurrency) {
+            try {
+                const result = await options.convertToUserCurrency(Math.abs(amount), t.currency);
+                amount = amount >= 0 ? result.convertedAmount : -result.convertedAmount;
+            } catch (e) {
+                console.warn(`Failed to convert currency for transaction ${t.amount} ${t.currency} to ${options.userCurrency}`, e);
+            }
+        }
+
+        // If the payment method is not in the known list (e.g. custom or old), add it
+        if (balances[t.payment_method] === undefined) {
+            balances[t.payment_method] = 0;
+        }
+        balances[t.payment_method] += amount;
+      }
+    }
     
     return balances;
   } catch (error) {
@@ -486,7 +525,8 @@ export async function getAllTransactions() {
       .from('transactions')
       .select(`
         *,
-        category:categories(*)
+        category:categories(*),
+        items(*)
       `)
       .eq('user_id', user.id)
       .order('occurred_at', { ascending: false });
@@ -536,7 +576,8 @@ export function filterTransactions(
       (t) =>
         t.merchant?.toLowerCase().includes(query) ||
         t.category?.name?.toLowerCase().includes(query) ||
-        t.note?.toLowerCase().includes(query)
+        t.note?.toLowerCase().includes(query) ||
+        t.items?.some((item) => item.item_name.toLowerCase().includes(query))
     );
   }
 

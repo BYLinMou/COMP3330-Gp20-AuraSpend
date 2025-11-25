@@ -9,6 +9,7 @@ import { RefreshableScrollView } from '../../components/refreshable-scroll-view'
 import { useLanguage } from '../../src/providers/LanguageProvider';
 import { 
   getRecentTransactions, 
+  getTransactionsByDateRange,
   subscribeToTransactionChanges,
   deleteTransaction,
   getBalancesByPaymentMethod,
@@ -42,7 +43,7 @@ function getRelativeTime(dateString: string, t: any): string {
 export default function HomeScreen() {
   const { t } = useLanguage();
   const { session } = useAuth();
-  const { currencySymbol, currencyCode, convertToUserCurrency } = useCurrency();
+  const { currencySymbol, currencyCode, convertToUserCurrency, loading: currencyLoading } = useCurrency();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -111,28 +112,11 @@ export default function HomeScreen() {
       try {
         setLoadingPaymentMethods(true);
         
-        // Get payment methods and create sample balances
-        const methods = await getPaymentMethods();
-        const balances: Record<string, number> = {};
-        
-        // For demonstration, assign the total balance distributed across payment methods
-        // In production, this would query actual transaction data by payment method
-        const methodsToShow = methods.slice(0, 6); // Show top 6 payment methods
-        const balancePerMethod = balance / methodsToShow.length;
-        
-        methodsToShow.forEach((method, index) => {
-          // Create varied sample data for visual interest
-          if (index === 0) {
-            balances[method.name] = balancePerMethod * 1.5;
-          } else if (index === 1) {
-            balances[method.name] = balancePerMethod * 0.8;
-          } else if (index === 2) {
-            balances[method.name] = balancePerMethod * 0.5;
-          } else {
-            balances[method.name] = balancePerMethod * 0.3;
-          }
+        // Get real balances from database with currency conversion
+        const balances = await getBalancesByPaymentMethod({
+          convertToUserCurrency,
+          userCurrency: currencyCode
         });
-        
         setPaymentMethodBalances(balances);
       } catch (error) {
         console.error('Error fetching payment method balances:', error);
@@ -177,9 +161,9 @@ export default function HomeScreen() {
 
   // Initial data load
   useEffect(() => {
-    if (!session) return;
+    if (!session || currencyLoading) return;
     loadData();
-  }, [session, transactionLimit]);
+  }, [session, transactionLimit, currencyCode, currencyLoading]);
 
   // Realtime: refresh when transactions change
   useEffect(() => {
@@ -202,29 +186,6 @@ export default function HomeScreen() {
     };
   }, [session]);
 
-  // Convert transaction amounts to user's primary currency
-  async function convertTransactionAmounts(transactions: Transaction[]) {
-    try {
-      const amounts: Record<string, number> = {};
-      
-      // Convert each transaction's amount
-      await Promise.all(
-        transactions.map(async (transaction) => {
-          if (transaction.currency && transaction.currency !== currencyCode) {
-            const result = await convertToUserCurrency(Math.abs(transaction.amount), transaction.currency);
-            amounts[transaction.id] = transaction.amount >= 0 ? result.convertedAmount : -result.convertedAmount;
-          } else {
-            amounts[transaction.id] = transaction.amount;
-          }
-        })
-      );
-      
-      setConvertedAmounts(amounts);
-    } catch (error) {
-      console.error('Failed to convert transaction amounts:', error);
-    }
-  }
-
   async function loadData() {
     try {
       setLoading(true);
@@ -238,24 +199,47 @@ export default function HomeScreen() {
       const endDate = lastDay.toISOString().split('T')[0];
 
       // Fetch all data in parallel
-      const [transactions, monthlyBudget] = await Promise.all([
+      const [recentTransactionsData, monthlyTransactions, monthlyBudget] = await Promise.all([
         getRecentTransactions(transactionLimit),
+        getTransactionsByDateRange(startDate, endDate),
         getMonthlyBudgetAmount(),
       ]);
 
-      // Calculate expenses from transactions
-      const expenses = transactions
-        .filter(t => t.amount < 0)
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      // Convert recent transaction amounts for display
+      const amounts: Record<string, number> = {};
+      await Promise.all(
+        recentTransactionsData.map(async (transaction) => {
+          if (transaction.currency && transaction.currency !== currencyCode) {
+            const result = await convertToUserCurrency(Math.abs(transaction.amount), transaction.currency);
+            amounts[transaction.id] = transaction.amount >= 0 ? result.convertedAmount : -result.convertedAmount;
+          } else {
+            amounts[transaction.id] = transaction.amount;
+          }
+        })
+      );
 
-      setRecentTransactions(transactions);
+      // Calculate expenses from monthly transactions (converting if needed)
+      let expenses = 0;
+      await Promise.all(
+        monthlyTransactions.map(async (transaction) => {
+          if (transaction.amount < 0) {
+             let amount = Math.abs(transaction.amount);
+             if (transaction.currency && transaction.currency !== currencyCode) {
+                const result = await convertToUserCurrency(amount, transaction.currency);
+                amount = result.convertedAmount;
+             }
+             expenses += amount;
+          }
+        })
+      );
+
+      // Set all state together to ensure UI updates with converted amounts
+      setRecentTransactions(recentTransactionsData);
+      setConvertedAmounts(amounts);
       setSpent(expenses);
       setBudget(monthlyBudget);
       // Balance = budget - expenses
       setBalance(monthlyBudget - expenses);
-
-      // Convert transaction amounts to user's currency
-      await convertTransactionAmounts(transactions);
 
       // Debug: 检查所有 items
       try {
@@ -282,17 +266,43 @@ export default function HomeScreen() {
       const endDate = lastDay.toISOString().split('T')[0];
 
       // Fetch all data in parallel
-      const [transactions, monthlyBudget] = await Promise.all([
+      const [recentTransactionsData, monthlyTransactions, monthlyBudget] = await Promise.all([
         getRecentTransactions(transactionLimit),
+        getTransactionsByDateRange(startDate, endDate),
         getMonthlyBudgetAmount(),
       ]);
 
-      // Calculate expenses from transactions
-      const expenses = transactions
-        .filter(t => t.amount < 0)
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      // Convert recent transaction amounts for display
+      const amounts: Record<string, number> = {};
+      await Promise.all(
+        recentTransactionsData.map(async (transaction) => {
+          if (transaction.currency && transaction.currency !== currencyCode) {
+            const result = await convertToUserCurrency(Math.abs(transaction.amount), transaction.currency);
+            amounts[transaction.id] = transaction.amount >= 0 ? result.convertedAmount : -result.convertedAmount;
+          } else {
+            amounts[transaction.id] = transaction.amount;
+          }
+        })
+      );
 
-      setRecentTransactions(transactions);
+      // Calculate expenses from monthly transactions (converting if needed)
+      let expenses = 0;
+      await Promise.all(
+        monthlyTransactions.map(async (transaction) => {
+          if (transaction.amount < 0) {
+             let amount = Math.abs(transaction.amount);
+             if (transaction.currency && transaction.currency !== currencyCode) {
+                const result = await convertToUserCurrency(amount, transaction.currency);
+                amount = result.convertedAmount;
+             }
+             expenses += amount;
+          }
+        })
+      );
+
+      // Set all state together to ensure UI updates with converted amounts
+      setRecentTransactions(recentTransactionsData);
+      setConvertedAmounts(amounts);
       setSpent(expenses);
       setBudget(monthlyBudget);
       // Balance = budget - expenses
@@ -343,7 +353,7 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
               >
                 <View style={styles.balanceHeader}>
-                  <Text style={styles.balanceLabel}>{t('home.currentBalance')}</Text>
+                  <Text style={styles.balanceLabel}>{t('home.remainingBudget')}</Text>
                   <Ionicons name="wallet-outline" size={24} color={Colors.white} />
                 </View>
                 <Text style={styles.balanceAmount}>{currencySymbol}{balance.toFixed(2)}</Text>
@@ -596,7 +606,7 @@ export default function HomeScreen() {
               ))}
             </View>
           )}
-          {loading ? (
+          {loading || currencyLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.primary} />
             </View>
@@ -906,9 +916,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   balanceLabel: {
-    fontSize: 13,
+    fontSize: 15,
     color: Colors.white,
     opacity: 0.9,
+    fontWeight: '600',
   },
   balanceAmount: {
     fontSize: 38,

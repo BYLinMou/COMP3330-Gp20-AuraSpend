@@ -32,7 +32,6 @@ import { getPaymentMethods, type PaymentMethod } from '@/src/services/payment-me
 import { getMonthlyBudgetAmount } from '@/src/services/budgets';
 import { useCurrency } from '@/src/providers/CurrencyProvider';
 
-type FilterType = 'all' | 'income' | 'expense';
 type SourceType = 'all' | 'manual' | 'ocr' | 'ai';
 
 // Helper function to format relative time
@@ -59,7 +58,6 @@ export default function AllTransactionsScreen() {
   const [convertedAmounts, setConvertedAmounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<FilterType>('all');
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [transactionItems, setTransactionItems] = useState<Record<string, ItemRow[]>>({});
   const [monthlyBudget, setMonthlyBudget] = useState<number>(0);
@@ -85,7 +83,7 @@ export default function AllTransactionsScreen() {
 
   useEffect(() => {
     applyFilters();
-  }, [searchQuery, filterType, transactions, selectedCategories, selectedPaymentMethods, selectedSource, minAmount, maxAmount, startDate, endDate]);
+  }, [searchQuery, transactions, selectedCategories, selectedPaymentMethods, selectedSource, minAmount, maxAmount, startDate, endDate]);
 
   const fetchTransactions = async () => {
     if (!session?.user?.id) return;
@@ -139,22 +137,39 @@ export default function AllTransactionsScreen() {
         })
       );
       setConvertedAmounts(amounts);
+      return amounts;
     } catch (error) {
       console.error('Failed to convert transaction amounts:', error);
+      return {};
     }
   }
 
+  // Calculate stats using converted amounts
+  const getConvertedStats = (transactions: Transaction[]) => {
+    const transactionIncome = transactions
+      .filter((t) => t.amount > 0)
+      .reduce((sum, t) => {
+        const convertedAmount = convertedAmounts[t.id] ?? t.amount;
+        return sum + convertedAmount;
+      }, 0);
+
+    const expense = transactions
+      .filter((t) => t.amount < 0)
+      .reduce((sum, t) => {
+        const convertedAmount = convertedAmounts[t.id] ?? t.amount;
+        return sum + Math.abs(convertedAmount);
+      }, 0);
+
+    return {
+      totalIncome: transactionIncome,
+      totalExpense: expense,
+      balance: transactionIncome - expense,
+      count: transactions.length,
+    };
+  };
+
   const applyFilters = () => {
     let filtered = [...transactions];
-
-    // Apply type filter
-    if (filterType !== 'all') {
-      if (filterType === 'income') {
-        filtered = filtered.filter((t) => t.amount > 0);
-      } else if (filterType === 'expense') {
-        filtered = filtered.filter((t) => t.amount < 0);
-      }
-    }
 
     // Apply search query
     if (searchQuery && searchQuery.trim()) {
@@ -163,7 +178,8 @@ export default function AllTransactionsScreen() {
         (t) =>
           t.merchant?.toLowerCase().includes(query) ||
           t.category?.name?.toLowerCase().includes(query) ||
-          t.note?.toLowerCase().includes(query)
+          t.note?.toLowerCase().includes(query) ||
+          t.items?.some((item) => item.item_name.toLowerCase().includes(query))
       );
     }
 
@@ -212,7 +228,6 @@ export default function AllTransactionsScreen() {
   };
 
   const clearAllFilters = () => {
-    setFilterType('all');
     setSearchQuery('');
     setSelectedCategories([]);
     setSelectedPaymentMethods([]);
@@ -225,7 +240,6 @@ export default function AllTransactionsScreen() {
 
   const getActiveFiltersCount = () => {
     let count = 0;
-    if (filterType !== 'all') count++;
     if (selectedCategories.length > 0) count++;
     if (selectedPaymentMethods.length > 0) count++;
     if (selectedSource !== 'all') count++;
@@ -234,29 +248,10 @@ export default function AllTransactionsScreen() {
     return count;
   };
 
-  const stats = getTransactionStats(filteredTransactions);
+  const stats = getConvertedStats(filteredTransactions);
   
   // Balance = budget - expenses
   const displayBalance = monthlyBudget - stats.totalExpense;
-
-  const renderFilterButton = (type: FilterType, label: string) => (
-    <TouchableOpacity
-      style={[
-        styles.filterButton,
-        filterType === type && styles.filterButtonActive,
-      ]}
-      onPress={() => setFilterType(type)}
-    >
-      <Text
-        style={[
-          styles.filterButtonText,
-          filterType === type && styles.filterButtonTextActive,
-        ]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
 
   const renderTransaction = ({ item }: { item: Transaction }) => {
     if (!blurAnimRef.current[item.id]) {
@@ -271,8 +266,8 @@ export default function AllTransactionsScreen() {
             setExpandedTransactionId(null);
           } else {
             setExpandedTransactionId(item.id);
-            // Fetch items for this transaction
-            if (!transactionItems[item.id]) {
+            // Fetch items for this transaction if not already available
+            if (!transactionItems[item.id] && !item.items) {
               try {
                 const items = await getItemsByTransaction(item.id);
                 setTransactionItems(prev => ({
@@ -407,7 +402,7 @@ export default function AllTransactionsScreen() {
 
             {/* Items */}
             {(() => {
-              const items = transactionItems[item.id];
+              const items = transactionItems[item.id] || item.items;
               if (items && items.length > 0) {
                 return (
                   <View style={styles.expandedDetailSection}>
@@ -517,33 +512,26 @@ export default function AllTransactionsScreen() {
           />
         </View>
 
-        {/* Quick Filter Buttons */}
-        <View style={styles.quickFilterContainer}>
-          {renderFilterButton('all', 'All')}
-          {renderFilterButton('income', 'Income')}
-          {renderFilterButton('expense', 'Expense')}
-        </View>
-
         {/* Statistics Summary */}
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Budget</Text>
             <Text style={[styles.statValue, styles.incomeAmount]}>
-              ${monthlyBudget.toFixed(2)}
+              {currencySymbol}{monthlyBudget.toFixed(2)}
             </Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Expense</Text>
             <Text style={[styles.statValue, styles.expenseAmount]}>
-              ${stats.totalExpense.toFixed(2)}
+              {currencySymbol}{stats.totalExpense.toFixed(2)}
             </Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Balance</Text>
             <Text style={[styles.statValue, displayBalance >= 0 ? styles.incomeAmount : styles.expenseAmount]}>
-              ${displayBalance.toFixed(2)}
+              {currencySymbol}{displayBalance.toFixed(2)}
             </Text>
           </View>
         </View>

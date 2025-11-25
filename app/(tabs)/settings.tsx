@@ -183,7 +183,6 @@ export default function SettingsScreen() {
       if (availableModels.length === 0 && !receiptModel && !chatModel && !fallbackModel) {
         console.log('[Settings] No models available, prompting user to fetch');
         setShowModelSelection(true);
-        /*
         Alert.alert(
           'No Models Available',
           'You need to fetch the available models first. Would you like to fetch them now?',
@@ -212,7 +211,7 @@ export default function SettingsScreen() {
               },
             },
           ]
-        );*/
+        );
       } else {
         setShowModelSelection(true);
       }
@@ -395,7 +394,6 @@ export default function SettingsScreen() {
         updateMonthOptions(updated);
         return updated;
       });
-      Alert.alert(t('settings.alerts.success'), t('settings.alerts.budgetUpdated', { month: formatBudgetMonth(selectedBudgetMonth) }));
     } catch (error) {
       console.error('Failed to save budget:', error);
       Alert.alert(t('settings.alerts.error'), t('settings.alerts.failedToSave', { item: 'budget' }));

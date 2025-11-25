@@ -1,7 +1,7 @@
 {
   "home": {
     "title": "首页",
-    "currentBalance": "当前余额",
+    "Remaining Budget": "剩余预算",
     "budget": "预算",
     "spent": "已支出",
     "remaining": "剩余",

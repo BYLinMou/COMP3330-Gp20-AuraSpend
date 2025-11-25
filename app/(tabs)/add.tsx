@@ -758,7 +758,7 @@ export default function AddScreen() {
 
           {/* Item List */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('add.itemList')} ({t('add.optional')})</Text>
+            <Text style={styles.inputLabel}>{t('add.itemList')}</Text>
             {itemlist.length > 0 && (
               <Text style={styles.itemListSubtext}>
                 {t('add.swipeToDelete')}
@@ -913,7 +913,7 @@ export default function AddScreen() {
 
           {/* Payment Method */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('add.paymentMethod')} ({t('add.optional')})</Text>
+            <Text style={styles.inputLabel}>{t('add.paymentMethod')}</Text>
             <TouchableOpacity 
               style={styles.selectInput}
               onPress={() => setShowPaymentMethodModal(true)}
@@ -948,7 +948,7 @@ export default function AddScreen() {
 
           {/* Merchant */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('add.merchant')} ({t('add.optional')})</Text>
+            <Text style={styles.inputLabel}>{t('add.merchant')}</Text>
             <RNTextInput
               style={styles.textInput}
               placeholder={t('add.merchantPlaceholder')}
@@ -959,7 +959,7 @@ export default function AddScreen() {
 
           {/* Notes */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('add.notes')} ({t('add.optional')})</Text>
+            <Text style={styles.inputLabel}>{t('add.notes')}</Text>
             <RNTextInput
               style={[styles.textInput, styles.notesInput]}
               placeholder={t('add.notesPlaceholder')}
