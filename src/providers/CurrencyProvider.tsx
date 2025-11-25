@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getProfile } from '../services/profiles';
 import { getCurrencies, type Currency } from '../services/currencies';
-import { convertCurrency, type ConversionResult } from '../services/currency-converter';
+import { convertCurrency, type ConversionResult, preloadRates } from '../services/currency-converter';
 import { useAuth } from './AuthProvider';
 
 type CurrencyContextType = {
@@ -50,6 +50,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       const currency = currencies.find(c => c.code === currencyCode) || currencies.find(c => c.code === 'HKD');
       
       setPrimaryCurrency(currency || { code: 'HKD', symbol: '$', name: 'Hong Kong Dollar' });
+      
+      // Preload common exchange rates in the background (don't wait for it)
+      if (currency) {
+        preloadRates(currency.code).catch(err => {
+          console.error('Failed to preload rates:', err);
+        });
+      }
     } catch (error) {
       console.error('Failed to load currency:', error);
       // Default to HKD on error
