@@ -269,6 +269,7 @@
     "privacy": {
       "title": "数据与隐私",
       "exportData": "导出我的数据",
+      "importData": "导入数据",
       "privacySettings": "隐私设置",
       "privacyText": "您的数据已加密并安全存储。我们从不与第三方共享您的个人财务信息。"
     },
