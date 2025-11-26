@@ -253,20 +253,15 @@ export async function addXP(amount: number) {
     // Calculate potential new level based on total XP
     const { level: calculatedLevel } = calculateLevelFromXP(newTotalXP);
     
-    // Check if level up is allowed (Mood must be 100)
+    // Check for level up based on XP only (no mood restriction)
     let newLevel = currentState.level;
     let leveledUp = false;
     let levelsGained = 0;
-    let blockedByMood = false;
 
     if (calculatedLevel > currentState.level) {
-      if (currentState.mood >= 100) {
-        newLevel = calculatedLevel;
-        leveledUp = true;
-        levelsGained = newLevel - currentState.level;
-      } else {
-        blockedByMood = true;
-      }
+      newLevel = calculatedLevel;
+      leveledUp = true;
+      levelsGained = newLevel - currentState.level;
     }
 
     const updates: any = {
@@ -296,7 +291,6 @@ export async function addXP(amount: number) {
       leveledUp, 
       levelsGained,
       xpGained: amount,
-      blockedByMood
     };
   } catch (error) {
     console.error('Failed to add XP:', error);
@@ -318,17 +312,16 @@ export async function petPet(amount: number = 5) {
     }
 
     const currentState = await getPetState();
-    let newMood = currentState.mood + amount;
+    let newMood = Math.min(100, currentState.mood + amount);
     let xpGained = 0;
     let leveledUp = false;
     let levelsGained = 0;
 
-    // If happiness is already 100 (or reaches 100), add XP
-    if (currentState.mood >= 100) {
+    // If happiness is full (i.e., 100) after petting, add XP
+    // if (newMood >= 100) {
+    if (newMood >= 100) {
       newMood = 100;
       xpGained = 5;
-    } else {
-      newMood = Math.min(100, newMood);
     }
 
     // Calculate new XP
@@ -338,7 +331,7 @@ export async function petPet(amount: number = 5) {
     const { level: calculatedLevel } = calculateLevelFromXP(newTotalXP);
     let newLevel = currentState.level;
 
-    if (calculatedLevel > currentState.level && newMood >= 100) {
+    if (calculatedLevel > currentState.level) {
       newLevel = calculatedLevel;
       leveledUp = true;
       levelsGained = newLevel - currentState.level;
@@ -384,15 +377,14 @@ export async function hitPet(amount: number = 10) {
     }
 
     const currentState = await getPetState();
-    let newMood = currentState.mood - amount;
+    // Calculate new mood (minimum 0)
+    let newMood = Math.max(0, currentState.mood - amount);
     let xpLost = 0;
 
-    // If happiness is 0 (or drops to 0), deduct XP
-    if (currentState.mood <= 0) {
-      newMood = 0;
+    // If happiness is zero after the hit (or was already 0), deduct XP
+    if (newMood <= 0) {
       xpLost = 10;
-    } else {
-      newMood = Math.max(0, newMood);
+      newMood = 0;
     }
 
     const newTotalXP = Math.max(0, currentState.xp - xpLost);

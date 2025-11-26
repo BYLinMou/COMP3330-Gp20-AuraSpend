@@ -219,11 +219,6 @@ export default function PetScreen() {
           message: `🎉 ${t('pet.levelUpMessage', { level: result.pet.level, levels: result.levelsGained })}`,
           severity: 'success'
         });
-      } else if (result.blockedByMood) {
-        showToast({
-          message: t('pet.levelUpBlocked', { defaultValue: "Level up blocked! Pet needs 100% happiness." }),
-          severity: 'warning'
-        });
       } else {
         showToast({
           message: t('pet.xpGainedMessage', { xp: result.xpGained }),
