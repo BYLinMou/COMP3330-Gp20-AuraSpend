@@ -11,6 +11,27 @@ import { useToast } from '../src/providers/ToastProvider';
 import { useRateLimit } from '../src/hooks/useRateLimit';
 import { PetSpeechBubble } from './pet-speech-bubble';
 
+// Decorative corner component - curved flourish matching card radius
+const OrnamentalCorner = ({ position }: { position: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' }) => {
+  const cornerStyles = {
+    topLeft: { top: 8, left: 8, transform: [{ rotate: '0deg' }] },
+    topRight: { top: 8, right: 8, transform: [{ rotate: '90deg' }] },
+    bottomLeft: { bottom: 8, left: 8, transform: [{ rotate: '-90deg' }] },
+    bottomRight: { bottom: 8, right: 8, transform: [{ rotate: '180deg' }] },
+  };
+  
+  return (
+    <View style={[styles.ornamentalCorner, cornerStyles[position]]}>
+      {/* Outer curved line */}
+      <View style={styles.curveOuter} />
+      {/* Inner curved line */}
+      <View style={styles.curveInner} />
+      {/* Small accent dot */}
+      <View style={styles.accentDot} />
+    </View>
+  );
+};
+
 interface FlippablePetCardProps {
   petState: PetState | null;
   activePet: UserPet | null;
@@ -372,6 +393,12 @@ export default function FlippablePetCard({
             colors={['#ffffff', '#f5f5f5']}
             style={styles.gradientCard}
           >
+            {/* Ornamental Corners */}
+            <OrnamentalCorner position="topLeft" />
+            <OrnamentalCorner position="topRight" />
+            <OrnamentalCorner position="bottomLeft" />
+            <OrnamentalCorner position="bottomRight" />
+            
             {/* Card info - bottom layer */}
             <View style={styles.cardInfoContainer}>
               <Text style={[styles.petName, isLarge && styles.petNameLarge]}>
@@ -489,6 +516,12 @@ export default function FlippablePetCard({
             colors={['#ffffff', '#f0f0f0']}
             style={styles.gradientCard}
           >
+            {/* Ornamental Corners */}
+            <OrnamentalCorner position="topLeft" />
+            <OrnamentalCorner position="topRight" />
+            <OrnamentalCorner position="bottomLeft" />
+            <OrnamentalCorner position="bottomRight" />
+            
             <Text style={styles.backTitle}>Choose Your Pet</Text>
             <View style={styles.petGrid}>
               {userPets.length > 0 ? (
@@ -532,6 +565,49 @@ const styles = StyleSheet.create({
   cardContainer: {
     width: '100%',
     marginBottom: 16,
+  },
+  ornamentalCorner: {
+    position: 'absolute',
+    width: 18,
+    height: 18,
+    zIndex: 10,
+  },
+  // Outer curved flourish (matches card's 16px border radius)
+  curveOuter: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 18,
+    height: 18,
+    borderTopWidth: 1.5,
+    borderLeftWidth: 1.5,
+    borderColor: Colors.primary,
+    borderTopLeftRadius: 16,
+    opacity: 0.4,
+  },
+  // Inner curved line (subtle parallel)
+  curveInner: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 10,
+    height: 10,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: Colors.primary,
+    borderTopLeftRadius: 10,
+    opacity: 0.2,
+  },
+  // Small accent dot at corner point
+  accentDot: {
+    position: 'absolute',
+    top: -0.5,
+    left: -0.5,
+    width: 3,
+    height: 3,
+    backgroundColor: Colors.primary,
+    opacity: 0.3,
+    borderRadius: 1.5,
   },
   card: {
     position: 'absolute',

@@ -5,6 +5,74 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Gradients } from '../../constants/theme';
+
+// Decorative corner component - curved flourish matching card radius
+const OrnamentalCorner = ({ position }: { position: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' }) => {
+  const cornerStyles: Record<string, any> = {
+    topLeft: { top: 8, left: 8, transform: [{ rotate: '0deg' }] },
+    topRight: { top: 8, right: 8, transform: [{ rotate: '90deg' }] },
+    bottomLeft: { bottom: 8, left: 8, transform: [{ rotate: '-90deg' }] },
+    bottomRight: { bottom: 8, right: 8, transform: [{ rotate: '180deg' }] },
+  };
+  
+  return (
+    <View style={[petStatusStyles.ornamentalCorner, cornerStyles[position]]}>
+      {/* Outer curved line */}
+      <View style={petStatusStyles.curveOuter} />
+      {/* Inner curved line */}
+      <View style={petStatusStyles.curveInner} />
+      {/* Small accent dot */}
+      <View style={petStatusStyles.accentDot} />
+    </View>
+  );
+};
+
+const petStatusStyles = StyleSheet.create({
+  ornamentalCorner: {
+    position: 'absolute',
+    width: 18,
+    height: 18,
+    zIndex: 10,
+  },
+  // Outer curved flourish (matches card's 16px border radius)
+  curveOuter: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 18,
+    height: 18,
+    borderTopWidth: 1.5,
+    borderLeftWidth: 1.5,
+    borderColor: Colors.primary,
+    borderTopLeftRadius: 16,
+    opacity: 0.4,
+    // Mask to only show the curve in corner area
+  },
+  // Inner curved line (subtle parallel)
+  curveInner: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 10,
+    height: 10,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: Colors.primary,
+    borderTopLeftRadius: 10,
+    opacity: 0.2,
+  },
+  // Small accent dot at corner point
+  accentDot: {
+    position: 'absolute',
+    top: -0.5,
+    left: -0.5,
+    width: 3,
+    height: 3,
+    backgroundColor: Colors.primary,
+    opacity: 0.3,
+    borderRadius: 1.5,
+  },
+});
 import { RefreshableScrollView } from '../../components/refreshable-scroll-view';
 import FlippablePetCard from '../../components/flippable-pet-card';
 import { useLanguage } from '../../src/providers/LanguageProvider';
@@ -224,7 +292,6 @@ export default function PetScreen() {
   }
 
   const happiness = petState?.mood || 0;
-  const energy = petState?.hunger || 0;
   
   // Calculate level progress using new system
   const totalXP = petState?.xp || 0;
@@ -266,6 +333,12 @@ export default function PetScreen() {
 
         {/* Pet Status Card */}
         <View style={styles.card}>
+          {/* Ornamental Corners */}
+          <OrnamentalCorner position="topLeft" />
+          <OrnamentalCorner position="topRight" />
+          <OrnamentalCorner position="bottomLeft" />
+          <OrnamentalCorner position="bottomRight" />
+          
           <View style={styles.cardHeader}>
             <Ionicons name="heart" size={24} color={Colors.error} />
             <Text style={styles.cardTitle}>{t('pet.petStatus')}</Text>
@@ -278,15 +351,6 @@ export default function PetScreen() {
           </View>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, styles.happinessFill, { width: `${happiness}%` }]} />
-          </View>
-
-          {/* Energy */}
-          <View style={styles.statusItem}>
-            <Text style={styles.statusLabel}>{t('pet.energy')}</Text>
-            <Text style={styles.statusValue}>{energy}%</Text>
-          </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, styles.energyFill, { width: `${energy}%` }]} />
           </View>
 
           {/* Level Progress */}
@@ -511,9 +575,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   happinessFill: {
-    backgroundColor: Colors.textPrimary,
-  },
-  energyFill: {
     backgroundColor: Colors.textPrimary,
   },
   levelFill: {
