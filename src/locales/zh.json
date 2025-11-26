@@ -137,6 +137,11 @@
     "allowCameraAccess": "请允许访问相机以拍摄收据照片。",
     "allowPhotosAccess": "请允许访问您的相册以上传收据。",
     "Delete": "删除"
+    ,
+    "confirmClearTitle": "清除表单",
+    "confirmClear": "确定要清除所有字段吗？",
+    "clear": "清除",
+    "cancel": "取消"
   },
   "pet": {
     "title": "宠物",

@@ -972,6 +972,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
+    maxHeight: 60,
   },
   viewAllTransactionsLeft: {
     flexDirection: 'row',

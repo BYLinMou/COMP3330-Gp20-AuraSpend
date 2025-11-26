@@ -136,6 +136,11 @@
     "allowCameraAccess": "Please allow camera access to take receipt photos.",
     "allowPhotosAccess": "Please allow access to your photos to upload receipts.",
     "Delete": "Delete"
+    ,
+    "confirmClearTitle": "Clear Form",
+    "confirmClear": "Are you sure you want to clear all fields?",
+    "clear": "Clear",
+    "cancel": "Cancel"
   },
   "pet": {
     "title": "Pet",

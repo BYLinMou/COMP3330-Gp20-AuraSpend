@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput as RNTe
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/theme';
@@ -348,35 +348,82 @@ export default function AddScreen() {
             setCategoryId(matchedCategory.id);
           }
           if (Platform.OS === 'web') {
-            alert('✅ Receipt information extracted! Please review the details and save.');
+            alert(t('add.receiptProcessed'));
           } else {
             Alert.alert(
-              '✅ Success', 
-              'Receipt information extracted! Please review the details and save.',
-              [{ text: 'OK' }]
+              t('add.success'),
+              t('add.receiptProcessed'),
+              [{ text: t('add.ok') }]
             );
           }
         }
       } else {
         if (Platform.OS === 'web') {
-          alert('✅ Receipt information extracted! Please select a category and save.');
+          alert(t('add.receiptProcessedSelectCategory'));
         } else {
           Alert.alert(
-            '✅ Success', 
-            'Receipt information extracted! Please select a category and save.',
-            [{ text: 'OK' }]
+            t('add.success'),
+            t('add.receiptProcessedSelectCategory'),
+            [{ text: t('add.ok') }]
           );
         }
       }
     } catch (error: any) {
       console.error('[Add Screen] Receipt processing error:', error);
       Alert.alert(
-        '❌ Processing Failed',
-        error?.message || 'Failed to process receipt. Please enter details manually.',
-        [{ text: 'OK' }]
+        t('add.processingFailed'),
+        error?.message || t('add.processingFailedMessage'),
+        [{ text: t('add.ok') }]
       );
     } finally {
       setProcessingReceipt(false);
+    }
+  };
+
+  const handleClearForm = () => {
+    // Check if there is any input to clear
+    const hasInput = amount || itemlist.length > 0 || categoryId || merchant || notes || selectedPaymentMethod;
+    
+    if (!hasInput) return;
+
+    const clearForm = () => {
+      setAmount('');
+      setItemlist([]);
+      setCategoryId('');
+      setMerchant('');
+      setNotes('');
+      setSelectedDate(new Date());
+      if (primaryCurrencyCode) {
+        setSelectedCurrency(primaryCurrencyCode);
+      }
+      setSelectedPaymentMethod('');
+      setUserOverrodeAmount(false);
+      setItemEditingState({});
+      setSuggestedCategory('');
+      setPendingReceiptData(null);
+      
+      // Close any open modals
+      setShowCategoryModal(false);
+      setShowCurrencyModal(false);
+      setShowPaymentMethodModal(false);
+      setShowDatePicker(false);
+      setShowTimePicker(false);
+      setShowNewCategoryModal(false);
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(t('add.confirmClear') || 'Are you sure you want to clear all fields?')) {
+        clearForm();
+      }
+    } else {
+      Alert.alert(
+        t('add.confirmClearTitle') || 'Clear Form',
+        t('add.confirmClear') || 'Are you sure you want to clear all fields?',
+        [
+          { text: t('add.cancel') || 'Cancel', style: 'cancel' },
+          { text: t('add.clear') || 'Clear', style: 'destructive', onPress: clearForm }
+        ]
+      );
     }
   };
 
@@ -510,12 +557,12 @@ export default function AddScreen() {
     setShowNewCategoryModal(false);
     
     if (Platform.OS === 'web') {
-      alert('✅ Receipt information extracted! Please select a category and save.');
+      alert(t('add.receiptProcessedSelectCategory'));
     } else {
       Alert.alert(
-        '✅ Success', 
-        'Receipt information extracted! Please select a category and save.',
-        [{ text: 'OK' }]
+        t('add.success'),
+        t('add.receiptProcessedSelectCategory'),
+        [{ text: t('add.ok') }]
       );
     }
   };
@@ -594,10 +641,10 @@ export default function AddScreen() {
         {/* Receipt Upload Area */}
         {inputMethod === 'receipt' && (
           <View style={styles.uploadArea}>
-            <View style={styles.uploadHeaderRow}>
-              <Ionicons name="cloud-upload-outline" size={28} color={Colors.primary} />
-              <Text style={styles.uploadText}>Upload a receipt or take a photo</Text>
-            </View>
+              <View style={styles.uploadHeaderRow}>
+                <Ionicons name="cloud-upload-outline" size={28} color={Colors.primary} />
+                <Text style={styles.uploadText}>{t('add.uploadReceipt')}</Text>
+              </View>
             <View style={styles.uploadButtonRow}>
               <TouchableOpacity 
                 style={[styles.uploadButton, processingReceipt && styles.uploadButtonDisabled]} 
@@ -621,7 +668,16 @@ export default function AddScreen() {
 
         {/* Transaction Details Form */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>{t('add.transactionDetails')}</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t('add.transactionDetails')}</Text>
+            <TouchableOpacity 
+              onPress={handleClearForm}
+              style={styles.clearButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialCommunityIcons name="broom" size={24} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
           {/* Amount with Inline Currency Selector */}
           <View style={styles.inputGroup}>
@@ -1264,7 +1320,7 @@ export default function AddScreen() {
         <View style={styles.processingOverlay}>
           <View style={styles.processingModalContent}>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.processingModalText}>Processing receipt...</Text>
+            <Text style={styles.processingModalText}>{t('add.processingReceipt')}</Text>
           </View>
         </View>
       </Modal>
@@ -1386,11 +1442,19 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 20,
+  },
+  clearButton: {
+    padding: 4,
   },
   inputGroup: {
     marginBottom: 20,
