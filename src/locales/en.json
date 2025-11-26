@@ -197,6 +197,7 @@
   "reports": {
     "title": "Reports",
     "yearlyBudget": "Yearly Budget",
+    "weeklyBudget": "Weekly Budget",
     "monthlyBudget": "Monthly Budget",
     "totalSpent": "Total Spent",
     "trends": "Trends",

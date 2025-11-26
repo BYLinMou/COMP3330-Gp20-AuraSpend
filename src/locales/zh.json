@@ -198,6 +198,7 @@
   "reports": {
     "title": "报告",
     "yearlyBudget": "年度预算",
+    "weeklyBudget": "每周预算",
     "monthlyBudget": "每月预算",
     "totalSpent": "总支出",
     "trends": "趋势",

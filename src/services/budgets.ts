@@ -71,6 +71,33 @@ export async function getMonthlyBudgetAmount(): Promise<number> {
 }
 
 /**
+ * Get weekly budget amount
+ * If period is yearly, returns amount / 52
+ * If period is monthly, returns amount / 4.345 (approx weeks/month)
+ * Returns default ~460 if no budget is set
+ */
+export async function getWeeklyBudgetAmount(): Promise<number> {
+  try {
+    const budget = await getCurrentBudget();
+
+    if (!budget) {
+      // Default weekly value based on default monthly 2000
+      return Math.round(2000 / 4.345);
+    }
+
+    if (budget.period === 'monthly') {
+      return budget.amount / 4.345; // convert monthly to weekly
+    } else {
+      // Yearly budget, divide by 52
+      return budget.amount / 52;
+    }
+  } catch (error) {
+    console.error('Failed to get weekly budget amount:', error);
+    return Math.round(2000 / 4.345);
+  }
+}
+
+/**
  * Create or update budget
  * If a budget with the same period and start_date exists, it will be updated
  * Otherwise, a new budget will be created
