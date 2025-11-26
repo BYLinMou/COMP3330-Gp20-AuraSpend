@@ -11,7 +11,7 @@ export default ({ config }) => {
     console.warn('Please create a .env file with EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY');
   }
 
-  const appVersion = "0.0.9";
+  const appVersion = "0.0.10";
 
   return {
     expo: {
