@@ -29,7 +29,8 @@ export default ({ config }) => {
       android: {
         adaptiveIcon: {
           backgroundColor: "#E6F4FE",
-          foregroundImage: "./assets/images/android-icon-foreground.png",
+          // foregroundImage: "./assets/images/android-icon-foreground.png",
+          foregroundImage: "./assets/images/icon.png",
           backgroundImage: "./assets/images/android-icon-background.png",
           monochromeImage: "./assets/images/android-icon-monochrome.png"
         },
