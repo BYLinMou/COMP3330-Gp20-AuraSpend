@@ -77,8 +77,8 @@ export default function FlippablePetCard({
   const hitOpacity = useRef(new Animated.Value(0)).current;
   const hitScale = useRef(new Animated.Value(1)).current;
   
-  // Shared value to track if swipe has already triggered an action
-  const hasTriggeredSwipe = useSharedValue(false);
+  // Shared value to track swipe side relative to pet center (-1: Left, 1: Right)
+  const lastSide = useSharedValue(0);
 
   // Emoji pool for celebration
   const celebrationEmojis = useRef(['❤️', '💕', '💖', '💗', '💓', '💞', '💘', '✨', '🌟', '⭐', '🌈', '🎈', '🥳', '🎉', '🎊']).current;
@@ -286,6 +286,7 @@ export default function FlippablePetCard({
   // Tap gesture - quick tap
   // If on pet -> hit. If elsewhere -> flip.
   const tapGesture = Gesture.Tap()
+    .maxDistance(10) // Ensure tap doesn't trigger if we swipe
     .onEnd((e) => {
       const padding = 20; // LinearGradient padding
       const absoluteX = petX.value + padding;
@@ -303,26 +304,42 @@ export default function FlippablePetCard({
     });
 
   // Pan gesture - rub/pet
-  // Trigger if path crosses/enters pet area
+  // Trigger when crossing the center of the pet
   const panGesture = Gesture.Pan()
     .minDistance(5)
-    .onStart(() => {
-      hasTriggeredSwipe.value = false;
+    .onStart((e) => {
+      const padding = 20;
+      const absoluteX = petX.value + padding;
+      const centerX = absoluteX + petWidth.value / 2;
+      
+      // Determine initial side relative to center
+      if (e.x < centerX) {
+        lastSide.value = -1;
+      } else {
+        lastSide.value = 1;
+      }
     })
     .onUpdate((e) => {
-      if (hasTriggeredSwipe.value) return;
-
       const padding = 20;
       const absoluteX = petX.value + padding;
       const absoluteY = petY.value + padding;
+      const centerX = absoluteX + petWidth.value / 2;
       
-      // Generous buffer for petting (swiping)
-      const buffer = 30;
-      const isOver = e.x >= absoluteX - buffer && e.x <= absoluteX + petWidth.value + buffer &&
-                     e.y >= absoluteY - buffer && e.y <= absoluteY + petHeight.value + buffer;
+      // Check if within Y bounds (with generous buffer)
+      const bufferY = 50; 
+      const isOverY = e.y >= absoluteY - bufferY && e.y <= absoluteY + petHeight.value + bufferY;
+      
+      if (!isOverY) return;
 
-      if (isOver) {
-        hasTriggeredSwipe.value = true;
+      const hysteresis = 15; // Distance from center to trigger crossing
+      
+      if (lastSide.value === -1 && e.x > centerX + hysteresis) {
+        // Crossed from Left to Right
+        lastSide.value = 1;
+        runOnJS(handlePetInteraction)('pet');
+      } else if (lastSide.value === 1 && e.x < centerX - hysteresis) {
+        // Crossed from Right to Left
+        lastSide.value = -1;
         runOnJS(handlePetInteraction)('pet');
       }
     });
@@ -330,6 +347,7 @@ export default function FlippablePetCard({
   // Long press gesture - pet/stroke (positive interaction)
   const longPressGesture = Gesture.LongPress()
     .minDuration(500)
+    .maxDistance(10) // Ensure long press doesn't trigger if we swipe
     .onStart((e) => {
        // Only trigger if on pet
        const padding = 20;
