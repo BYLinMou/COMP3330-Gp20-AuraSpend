@@ -14,6 +14,8 @@ interface RateLimitResult {
   tryCall: () => boolean;
   /** Get remaining calls available in current window */
   getRemainingCalls: () => number;
+  /** Get milliseconds remaining until the limit resets */
+  getRemainingTime: () => number;
   /** Check if currently in cooldown */
   isInCooldown: () => boolean;
   /** Reset the rate limiter */
@@ -21,50 +23,61 @@ interface RateLimitResult {
 }
 
 /**
- * A hook that enforces rate limiting with a sliding window and per-call cooldown.
+ * A hook that enforces rate limiting with a fixed window strategy.
+ * The window starts when the first call is made.
  * 
- * Example: useRateLimit({ windowMs: 3000, maxCalls: 5, cooldownMs: 1000 })
- * - Allows up to 5 calls within any 3-second window
- * - Enforces at least 1 second between consecutive calls
- * - If either limit is exceeded, tryCall() returns false
+ * Example: useRateLimit({ windowMs: 10000, maxCalls: 5 })
+ * - Allows 5 calls. The window of 10s starts at the 1st call.
+ * - If 5 calls are made in 4s, the user must wait the remaining 6s.
+ * - After 10s from the 1st call, the window resets.
  */
 export function useRateLimit(options: RateLimitOptions = {}): RateLimitResult {
-  const { windowMs = 10000, maxCalls = 5, cooldownMs = 1000 } = options; // 五秒2次，冷却1秒
+  const { windowMs = 10000, maxCalls = 5, cooldownMs = 0 } = options;
   
-  const timestamps = useRef<number[]>([]);
+  const windowStart = useRef<number>(0);
+  const count = useRef<number>(0);
   const lastCallTime = useRef<number>(0);
-
-  const cleanupOldTimestamps = useCallback(() => {
-    const now = Date.now();
-    timestamps.current = timestamps.current.filter(t => now - t <= windowMs);
-  }, [windowMs]);
 
   const tryCall = useCallback((): boolean => {
     const now = Date.now();
     
-    // Check cooldown first
-    if (lastCallTime.current && now - lastCallTime.current < cooldownMs) {
+    // Check cooldown (inter-call delay)
+    if (cooldownMs > 0 && lastCallTime.current && now - lastCallTime.current < cooldownMs) {
       return false;
     }
 
-    // Clean up old timestamps outside the window
-    cleanupOldTimestamps();
+    // Check if window has expired, reset if so
+    if (now - windowStart.current > windowMs) {
+      windowStart.current = now;
+      count.current = 0;
+    }
 
-    // Check if we've exceeded max calls in window
-    if (timestamps.current.length >= maxCalls) {
+    // Check if max calls reached in current window
+    if (count.current >= maxCalls) {
       return false;
     }
 
     // Record this call
-    timestamps.current.push(now);
+    count.current++;
     lastCallTime.current = now;
     return true;
-  }, [maxCalls, cooldownMs, cleanupOldTimestamps]);
+  }, [windowMs, maxCalls, cooldownMs]);
 
   const getRemainingCalls = useCallback((): number => {
-    cleanupOldTimestamps();
-    return Math.max(0, maxCalls - timestamps.current.length);
-  }, [maxCalls, cleanupOldTimestamps]);
+    const now = Date.now();
+    if (now - windowStart.current > windowMs) {
+      return maxCalls;
+    }
+    return Math.max(0, maxCalls - count.current);
+  }, [windowMs, maxCalls]);
+
+  const getRemainingTime = useCallback((): number => {
+    const now = Date.now();
+    if (now - windowStart.current > windowMs) {
+      return 0;
+    }
+    return Math.max(0, windowMs - (now - windowStart.current));
+  }, [windowMs]);
 
   const isInCooldown = useCallback((): boolean => {
     if (!lastCallTime.current) return false;
@@ -72,9 +85,10 @@ export function useRateLimit(options: RateLimitOptions = {}): RateLimitResult {
   }, [cooldownMs]);
 
   const reset = useCallback(() => {
-    timestamps.current = [];
+    windowStart.current = 0;
+    count.current = 0;
     lastCallTime.current = 0;
   }, []);
 
-  return { tryCall, getRemainingCalls, isInCooldown, reset };
+  return { tryCall, getRemainingCalls, getRemainingTime, isInCooldown, reset };
 }

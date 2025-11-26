@@ -33,7 +33,8 @@ export default function FlippablePetCard({
   
   // Toast and rate limiting
   const { showToast } = useToast();
-  const { tryCall } = useRateLimit();
+  const { tryCall, getRemainingTime } = useRateLimit();
+  const lastToastTime = useRef<number>(0);
   
   // Animation refs for pet movement
   const bounceAnim = useRef(new Animated.Value(0)).current;
@@ -104,13 +105,23 @@ export default function FlippablePetCard({
   const handlePetInteraction = useCallback((action: 'pet' | 'hit') => {
     if (!onInteract) return;
     
+    if (interacting) return;
+
     // Rate limiting check: 5 interactions per 3 seconds, 1s cooldown between each
     if (!tryCall()) {
-      showToast({ message: 'Too many interactions! Wait a moment...', severity: 'warning' });
+      const now = Date.now();
+      // Throttle toast to once every 2 seconds to prevent explosion
+      if (now - lastToastTime.current > 2000) {
+        const remainingSeconds = Math.ceil(getRemainingTime() / 1000);
+        showToast({ 
+          message: `Too many interactions! Wait ${remainingSeconds}s...`, 
+          severity: 'warning' 
+        });
+        lastToastTime.current = now;
+      }
       return;
     }
     
-    if (interacting) return;
     setInteracting(true);
     
     if (action === 'pet') {
@@ -152,8 +163,8 @@ export default function FlippablePetCard({
 
   // Pan gesture - rub left/right to pet (positive interaction) - relaxed for easier triggering
   const panGesture = Gesture.Pan()
-    .minDistance(5)
-    .onEnd((event) => {
+    .minDistance(10)
+    .onUpdate((event) => {
       // Trigger on any small horizontal movement
       if (Math.abs(event.translationX) > 10) {
         runOnJS(handlePetInteraction)('pet');
