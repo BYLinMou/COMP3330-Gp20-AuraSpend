@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, LayoutChangeEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -56,6 +56,12 @@ export default function FlippablePetCard({
   const [particles, setParticles] = useState<Array<{ id: string; emoji: string; opacity: Animated.Value; translateX: Animated.Value; translateY: Animated.Value; tilt: string }>>([]);
   const flipAnimation = useRef(new Animated.Value(0)).current;
   
+  // Layout shared values for gesture detection
+  const petX = useSharedValue(0);
+  const petY = useSharedValue(0);
+  const petWidth = useSharedValue(0);
+  const petHeight = useSharedValue(0);
+
   // Toast and rate limiting
   const { showToast } = useToast();
   const { tryCall, getRemainingTime } = useRateLimit();
@@ -90,7 +96,7 @@ export default function FlippablePetCard({
 
   const isLarge = size === 'large';
   const petSize = isLarge ? 130 : 90;
-  const cardHeight = isLarge ? 330 : 240;
+  const cardHeight = isLarge ? 310 : 240;
 
   // Helper function to select 5 random unique emojis
   const selectRandomEmojis = (): string[] => {
@@ -260,21 +266,62 @@ export default function FlippablePetCard({
     }, 1000);
   }, [handlePetInteraction, stopContinuousInteraction]);
 
-  // Tap gesture - quick tap = hit (negative interaction)
+  // Sync wrapper for gesture handler (runOnJS cannot call async functions directly)
+  const triggerFlip = useCallback(() => {
+    // Load pets asynchronously if flipping to back
+    if (!isFlipped) {
+      loadUserPets();
+    }
+
+    Animated.spring(flipAnimation, {
+      toValue: isFlipped ? 0 : 180,
+      friction: 8,
+      tension: 10,
+      useNativeDriver: true,
+    }).start();
+
+    setIsFlipped(!isFlipped);
+  }, [isFlipped, flipAnimation]);
+
+  // Tap gesture - quick tap
+  // If on pet -> hit. If elsewhere -> flip.
   const tapGesture = Gesture.Tap()
-    .onEnd(() => {
-      runOnJS(handlePetInteraction)('hit');
+    .onEnd((e) => {
+      const padding = 20; // LinearGradient padding
+      const absoluteX = petX.value + padding;
+      const absoluteY = petY.value + padding;
+      
+      // Check if tap is strictly within pet bounds
+      const isHit = e.x >= absoluteX && e.x <= absoluteX + petWidth.value &&
+                    e.y >= absoluteY && e.y <= absoluteY + petHeight.value;
+
+      if (isHit) {
+        runOnJS(handlePetInteraction)('hit');
+      } else {
+        runOnJS(triggerFlip)();
+      }
     });
 
-  // Pan gesture - rub left/right to pet (positive interaction) - relaxed for easier triggering
+  // Pan gesture - rub/pet
+  // Trigger if path crosses/enters pet area
   const panGesture = Gesture.Pan()
-    .minDistance(10)
+    .minDistance(5)
     .onStart(() => {
       hasTriggeredSwipe.value = false;
     })
-    .onUpdate((event) => {
-      // Trigger on any small horizontal movement, but only once per gesture
-      if (!hasTriggeredSwipe.value && Math.abs(event.translationX) > 10) {
+    .onUpdate((e) => {
+      if (hasTriggeredSwipe.value) return;
+
+      const padding = 20;
+      const absoluteX = petX.value + padding;
+      const absoluteY = petY.value + padding;
+      
+      // Generous buffer for petting (swiping)
+      const buffer = 30;
+      const isOver = e.x >= absoluteX - buffer && e.x <= absoluteX + petWidth.value + buffer &&
+                     e.y >= absoluteY - buffer && e.y <= absoluteY + petHeight.value + buffer;
+
+      if (isOver) {
         hasTriggeredSwipe.value = true;
         runOnJS(handlePetInteraction)('pet');
       }
@@ -282,15 +329,24 @@ export default function FlippablePetCard({
 
   // Long press gesture - pet/stroke (positive interaction)
   const longPressGesture = Gesture.LongPress()
-    .minDuration(1500)
-    .onStart(() => {
-      runOnJS(startContinuousInteraction)();
+    .minDuration(500)
+    .onStart((e) => {
+       // Only trigger if on pet
+       const padding = 20;
+       const absoluteX = petX.value + padding;
+       const absoluteY = petY.value + padding;
+       const isHit = e.x >= absoluteX && e.x <= absoluteX + petWidth.value &&
+                     e.y >= absoluteY && e.y <= absoluteY + petHeight.value;
+       
+       if (isHit) {
+         runOnJS(startContinuousInteraction)();
+       }
     })
     .onFinalize(() => {
       runOnJS(stopContinuousInteraction)();
     });
 
-  // Combine gestures with priority: longPress > pan > tap
+  // Combine gestures with priority
   const combinedGesture = Gesture.Race(
     longPressGesture,
     panGesture,
@@ -383,12 +439,7 @@ export default function FlippablePetCard({
         ]}
         pointerEvents={isFlipped ? 'none' : 'auto'}
       >
-        {/* Entire card is tappable for flip */}
-        <TouchableOpacity 
-          onPress={handleFlip}
-          activeOpacity={0.9}
-          style={styles.cardTouchable}
-        >
+        <GestureDetector gesture={combinedGesture}>
           <LinearGradient
             colors={['#ffffff', '#f5f5f5']}
             style={styles.gradientCard}
@@ -399,100 +450,105 @@ export default function FlippablePetCard({
             <OrnamentalCorner position="bottomLeft" />
             <OrnamentalCorner position="bottomRight" />
             
-            {/* Card info - bottom layer */}
-            <View style={styles.cardInfoContainer}>
-              <Text style={[styles.petName, isLarge && styles.petNameLarge]}>
-                {activePet?.pet_name || 'Aura'}
-              </Text>
-              <Text style={styles.petLevel}>
-                Level {petState?.level || 1} • {petState?.xp || 0} XP
-              </Text>
-              <View style={styles.tapHint}>
-                <Ionicons name="hand-left-outline" size={14} color={Colors.textSecondary} />
-                <Text style={styles.tapHintText}>Tap=poke • Hold/swipe=pet • Tap card to flip</Text>
-              </View>
-            </View>
-
-            {/* Effects Layer - removed, moved inside petInteractionArea */}
-
-            {/* Pet interaction area - top layer */}
-            <GestureDetector gesture={combinedGesture}>
-              <View 
-                style={styles.petInteractionArea}
-                onStartShouldSetResponder={() => true}
-                onTouchEnd={(e) => e.stopPropagation()}
-              >
-                {/* Speech Bubble */}
-                {speechText && (
-                  <View style={styles.speechBubbleWrapper}>
-                    <PetSpeechBubble text={speechText} />
-                  </View>
+            {/* Flex Container for Dynamic Layout */}
+            <View style={styles.flexContainer}>
+              
+              {/* Top: Speech Bubble */}
+              <View style={styles.topSection}>
+                {speechText ? (
+                  <PetSpeechBubble text={speechText} />
+                ) : (
+                  <View style={{ height: 20 }} /> // Spacer
                 )}
+              </View>
 
-                {/* Wrapper for Pet and Effects to center them together */}
-                <View style={styles.petWrapper}>
-                  {/* Celebration Particles */}
-                  <View style={styles.particlesContainer} pointerEvents="none">
-                    {particles.map((particle) => (
-                      <Animated.View 
-                        key={particle.id}
-                        style={[{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            marginLeft: -12,
-                            marginTop: -12,
-                            opacity: particle.opacity,
-                            transform: [
-                              { translateX: particle.translateX },
-                              { translateY: particle.translateY },
-                              { rotate: particle.tilt },
-                            ],
-                          }]}
-                      >
-                        <Text style={styles.effectEmoji}>{particle.emoji}</Text>
-                      </Animated.View>
-                    ))}
-                  </View>
+              {/* Middle: Pet & Effects */}
+              <View 
+                style={styles.middleSection}
+                onLayout={(e) => {
+                  petX.value = e.nativeEvent.layout.x;
+                  petY.value = e.nativeEvent.layout.y;
+                  petWidth.value = e.nativeEvent.layout.width;
+                  petHeight.value = e.nativeEvent.layout.height;
+                }}
+              >
+                {/* Particles */}
+                <View style={styles.particlesContainer} pointerEvents="none">
+                  {particles.map((particle) => (
+                    <Animated.View 
+                      key={particle.id}
+                      style={[{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          marginLeft: -12,
+                          marginTop: -12,
+                          opacity: particle.opacity,
+                          transform: [
+                            { translateX: particle.translateX },
+                            { translateY: particle.translateY },
+                            { rotate: particle.tilt },
+                          ],
+                        }]}
+                    >
+                      <Text style={styles.effectEmoji}>{particle.emoji}</Text>
+                    </Animated.View>
+                  ))}
+                </View>
 
-                  {/* Hit Effect behind pet */}
-                  <Animated.View 
-                      style={[
-                          styles.hitEffect, 
-                          { 
-                              width: petSize, 
-                              height: petSize,
-                              borderRadius: petSize / 2,
-                              opacity: hitOpacity,
-                              transform: [{ scale: hitScale }]
-                          }
-                      ]} 
-                  />
-
-                  <Animated.View 
+                {/* Hit Effect */}
+                <Animated.View 
                     style={[
-                      styles.petContainer,
-                      {
-                        transform: [
-                          { translateY: bounceAnim },
-                          { translateX: shakeAnim },
-                          { rotate: rotate },
-                          { scale: scaleAnim },
-                        ],
-                      }
-                    ]}
-                  >
-                    <View style={[styles.petAvatar, { width: petSize, height: petSize, borderRadius: petSize / 2 }]}>
-                      <Text style={[styles.petEmoji, { fontSize: petSize * 0.53 }]}>
-                        {activePet?.pet_emoji || '🐶'}
-                      </Text>
-                    </View>
-                  </Animated.View>
+                        styles.hitEffect, 
+                        { 
+                            width: petSize, 
+                            height: petSize,
+                            borderRadius: petSize / 2,
+                            opacity: hitOpacity,
+                            transform: [{ scale: hitScale }]
+                        }
+                    ]} 
+                />
+
+                {/* Pet Avatar */}
+                <Animated.View 
+                  style={[
+                    styles.petContainer,
+                    {
+                      transform: [
+                        { translateY: bounceAnim },
+                        { translateX: shakeAnim },
+                        { rotate: rotate },
+                        { scale: scaleAnim },
+                      ],
+                    }
+                  ]}
+                >
+                  <View style={[styles.petAvatar, { width: petSize, height: petSize, borderRadius: petSize / 2 }]}>
+                    <Text style={[styles.petEmoji, { fontSize: petSize * 0.53 }]}>
+                      {activePet?.pet_emoji || '🐶'}
+                    </Text>
+                  </View>
+                </Animated.View>
+              </View>
+
+              {/* Bottom: Info */}
+              <View style={styles.bottomSection}>
+                <Text style={[styles.petName, isLarge && styles.petNameLarge]}>
+                  {activePet?.pet_name || 'Aura'}
+                </Text>
+                <Text style={styles.petLevel}>
+                  Level {petState?.level || 1} • {petState?.xp || 0} XP
+                </Text>
+                <View style={styles.tapHint}>
+                  <Ionicons name="hand-left-outline" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.tapHintText}>Tap=poke • Swipe=pet • Tap empty=flip</Text>
                 </View>
               </View>
-            </GestureDetector>
+
+            </View>
           </LinearGradient>
-        </TouchableOpacity>
+        </GestureDetector>
       </Animated.View>
 
       {/* Back - Pet Selection */}
@@ -572,7 +628,6 @@ const styles = StyleSheet.create({
     height: 18,
     zIndex: 10,
   },
-  // Outer curved flourish (matches card's 16px border radius)
   curveOuter: {
     position: 'absolute',
     top: 0,
@@ -585,7 +640,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     opacity: 0.4,
   },
-  // Inner curved line (subtle parallel)
   curveInner: {
     position: 'absolute',
     top: 4,
@@ -598,7 +652,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 10,
     opacity: 0.2,
   },
-  // Small accent dot at corner point
   accentDot: {
     position: 'absolute',
     top: -0.5,
@@ -621,64 +674,6 @@ const styles = StyleSheet.create({
   cardTouchable: {
     flex: 1,
   },
-  petInteractionArea: {
-    position: 'absolute',
-    top: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3, // Above effects
-    width: '100%', // Ensure it takes full width to center bubble
-  },
-  speechBubbleWrapper: {
-    marginBottom: 12,
-    width: '95%',
-    alignItems: 'center', // Center the bubble container
-  },
-  cardInfoContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingBottom: 20,
-    zIndex: 1, // Bottom layer
-  },
-  petWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  particlesContainer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 0,
-  },
-  effectsContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 0, // Behind pet
-  },
-  hitEffect: {
-    position: 'absolute',
-    backgroundColor: '#FF0000',
-  },
-  celebrationEffect: {
-    position: 'absolute',
-    flexDirection: 'row',
-    gap: 8,
-    top: -20,
-  },
-  effectEmoji: {
-    fontSize: 24,
-  },
-  cardInfoArea: {
-    alignItems: 'center',
-    paddingTop: 8,
-  },
   gradientCard: {
     flex: 1,
     borderRadius: 16,
@@ -691,8 +686,45 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  flexContainer: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+  },
+  topSection: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    minHeight: 40,
+  },
+  middleSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  bottomSection: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  particlesContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 0,
+  },
+  hitEffect: {
+    position: 'absolute',
+    backgroundColor: '#FF0000',
+  },
+  effectEmoji: {
+    fontSize: 24,
+  },
   petContainer: {
-    // marginBottom moved to petWrapper
+    // 
   },
   petAvatar: {
     justifyContent: 'center',
@@ -722,16 +754,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     marginBottom: 8,
-  },
-  tapHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-  },
-  tapHintText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
   },
   backTitle: {
     fontSize: 18,
@@ -779,5 +801,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: 'center',
+  },
+  tapHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  tapHintText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
   },
 });
