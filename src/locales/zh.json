@@ -186,6 +186,7 @@
     "hit": "😢 哎呀！",
     "hitMessage": "你打了 {{name}}... 快乐度下降到 {{mood}}%",
     "failedToInteract": "与宠物互动失败。请重试。",
+    "tooManyInteractions": "操作过于频繁！请等待 {{seconds}} 秒...",
     "CurrentBalance": "当前余额"
   },
   "reports": {

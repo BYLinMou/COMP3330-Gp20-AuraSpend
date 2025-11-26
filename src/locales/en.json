@@ -184,7 +184,8 @@
     "pettedMessage": "You petted {{name}}! Happiness is now {{mood}}%",
     "hit": "😢 Ouch!",
     "hitMessage": "You hit {{name}}... Happiness dropped to {{mood}}%",
-    "failedToInteract": "Failed to interact with pet. Please try again."
+    "failedToInteract": "Failed to interact with pet. Please try again.",
+    "tooManyInteractions": "Too many interactions! Wait {{seconds}}s..."
   },
   "reports": {
     "title": "Reports",

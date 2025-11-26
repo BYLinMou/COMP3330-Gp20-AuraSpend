@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { Colors, Gradients } from '../constants/theme';
 import { getUserPets, switchPet, type UserPet, type PetState } from '../src/services/pet';
 import { useToast } from '../src/providers/ToastProvider';
@@ -65,6 +66,7 @@ export default function FlippablePetCard({
   // Toast and rate limiting
   const { showToast } = useToast();
   const { tryCall, getRemainingTime } = useRateLimit();
+  const { t } = useTranslation();
   const lastToastTime = useRef<number>(0);
   
   // Animation refs for pet movement
@@ -225,7 +227,7 @@ export default function FlippablePetCard({
       if (now - lastToastTime.current > 2000) {
         const remainingSeconds = Math.ceil(getRemainingTime() / 1000);
         showToast({ 
-          message: `Too many interactions! Wait ${remainingSeconds}s...`, 
+          message: t('pet.tooManyInteractions', { seconds: remainingSeconds }), 
           severity: 'warning' 
         });
         lastToastTime.current = now;
@@ -638,7 +640,7 @@ export default function FlippablePetCard({
 const styles = StyleSheet.create({
   cardContainer: {
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 0,
   },
   ornamentalCorner: {
     position: 'absolute',
@@ -707,7 +709,7 @@ const styles = StyleSheet.create({
   flexContainer: {
     flex: 1,
     width: '100%',
-    justifyContent: 'space-evenly',
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
   topSection: {
@@ -720,6 +722,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+     marginBottom: 3,
   },
   bottomSection: {
     width: '100%',
