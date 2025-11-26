@@ -1,7 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../constants/theme';
 import { getUserPets, switchPet, type UserPet, type PetState } from '../src/services/pet';
 
@@ -10,23 +13,27 @@ interface FlippablePetCardProps {
   activePet: UserPet | null;
   size?: 'small' | 'large';
   onPetChanged?: () => void;
+  onInteract?: (action: 'pet' | 'hit') => void | Promise<void>;
 }
 
 export default function FlippablePetCard({ 
   petState, 
   activePet, 
   size = 'small',
-  onPetChanged 
+  onPetChanged,
+  onInteract
 }: FlippablePetCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [userPets, setUserPets] = useState<UserPet[]>([]);
   const [loading, setLoading] = useState(false);
+  const [interacting, setInteracting] = useState(false);
   const flipAnimation = useRef(new Animated.Value(0)).current;
   
   // Animation refs for pet movement
   const bounceAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
 
   const isLarge = size === 'large';
   const petSize = isLarge ? 180 : 120;
@@ -85,6 +92,100 @@ export default function FlippablePetCard({
       }),
     ]).start();
   };
+
+  // Pet animation (happy bounce + scale)
+  const playPetAnimation = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.15,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -15,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  };
+
+  // Hit animation (shake)
+  const playHitAnimation = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  };
+
+  // Gesture handlers for pet avatar interaction
+  const handlePetInteraction = useCallback((action: 'pet' | 'hit') => {
+    if (interacting || !onInteract) return;
+    
+    setInteracting(true);
+    
+    if (action === 'pet') {
+      playPetAnimation();
+    } else {
+      playHitAnimation();
+    }
+    
+    // Call onInteract and handle the promise
+    Promise.resolve(onInteract(action)).finally(() => {
+      // Short cooldown before allowing next interaction
+      setTimeout(() => setInteracting(false), 500);
+    });
+  }, [interacting, onInteract]);
+
+  // Tap gesture - quick tap = hit (negative interaction)
+  const tapGesture = Gesture.Tap()
+    .onEnd(() => {
+      runOnJS(handlePetInteraction)('hit');
+    });
+
+  // Pan gesture - rub left/right to pet (positive interaction)
+  const panGesture = Gesture.Pan()
+    .minDistance(20)
+    .onEnd((event) => {
+      // Only trigger if mostly horizontal movement
+      if (Math.abs(event.translationX) > 30 && Math.abs(event.translationY) < 50) {
+        runOnJS(handlePetInteraction)('pet');
+      }
+    });
+
+  // Long press gesture - pet/stroke (positive interaction)
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(400)
+    .onEnd(() => {
+      runOnJS(handlePetInteraction)('pet');
+    });
+
+  // Combine gestures with priority: longPress > pan > tap
+  const combinedGesture = Gesture.Race(
+    longPressGesture,
+    panGesture,
+    tapGesture
+  );
 
   const loadUserPets = async () => {
     try {
@@ -160,11 +261,7 @@ export default function FlippablePetCard({
   });
 
   return (
-    <TouchableOpacity 
-      style={[styles.cardContainer, { height: cardHeight }]} 
-      onPress={handleFlip}
-      activeOpacity={0.9}
-    >
+    <View style={[styles.cardContainer, { height: cardHeight }]}>
       {/* Front - Active Pet */}
       <Animated.View
         style={[
@@ -175,39 +272,50 @@ export default function FlippablePetCard({
           },
         ]}
       >
-        <LinearGradient
-          colors={['#ffffff', '#f5f5f5']}
-          style={styles.gradientCard}
+        <TouchableOpacity 
+          onPress={handleFlip}
+          activeOpacity={0.9}
+          style={styles.cardTouchable}
         >
-          <Animated.View 
-            style={[
-              styles.petContainer,
-              {
-                transform: [
-                  { translateY: bounceAnim },
-                  { rotate: rotate },
-                  { scale: scaleAnim },
-                ],
-              }
-            ]}
+          <LinearGradient
+            colors={['#ffffff', '#f5f5f5']}
+            style={styles.gradientCard}
           >
-            <View style={[styles.petAvatar, { width: petSize, height: petSize, borderRadius: petSize / 2 }]}>
-              <Text style={[styles.petEmoji, { fontSize: petSize * 0.53 }]}>
-                {activePet?.pet_emoji || '🐶'}
-              </Text>
+            <GestureDetector gesture={combinedGesture}>
+              <View>
+                <Animated.View 
+                  style={[
+                    styles.petContainer,
+                    {
+                      transform: [
+                        { translateY: bounceAnim },
+                        { translateX: shakeAnim },
+                        { rotate: rotate },
+                        { scale: scaleAnim },
+                      ],
+                    }
+                  ]}
+                >
+                  <View style={[styles.petAvatar, { width: petSize, height: petSize, borderRadius: petSize / 2 }]}>
+                    <Text style={[styles.petEmoji, { fontSize: petSize * 0.53 }]}>
+                      {activePet?.pet_emoji || '🐶'}
+                    </Text>
+                  </View>
+                </Animated.View>
+              </View>
+            </GestureDetector>
+            <Text style={[styles.petName, isLarge && styles.petNameLarge]}>
+              {activePet?.pet_name || 'Aura'}
+            </Text>
+            <Text style={styles.petLevel}>
+              Level {petState?.level || 1} • {petState?.xp || 0} XP
+            </Text>
+            <View style={styles.tapHint}>
+              <Ionicons name="hand-left-outline" size={14} color={Colors.textSecondary} />
+              <Text style={styles.tapHintText}>Tap=poke • Hold/swipe=pet • Tap card to flip</Text>
             </View>
-          </Animated.View>
-          <Text style={[styles.petName, isLarge && styles.petNameLarge]}>
-            {activePet?.pet_name || 'Aura'}
-          </Text>
-          <Text style={styles.petLevel}>
-            Level {petState?.level || 1} • {petState?.xp || 0} XP
-          </Text>
-          <View style={styles.tapHint}>
-            <Ionicons name="sync-outline" size={14} color={Colors.textSecondary} />
-            <Text style={styles.tapHintText}>Tap to switch pets</Text>
-          </View>
-        </LinearGradient>
+          </LinearGradient>
+        </TouchableOpacity>
       </Animated.View>
 
       {/* Back - Pet Selection */}
@@ -221,45 +329,51 @@ export default function FlippablePetCard({
           },
         ]}
       >
-        <LinearGradient
-          colors={['#ffffff', '#f0f0f0']}
-          style={styles.gradientCard}
+        <TouchableOpacity 
+          onPress={handleFlip}
+          activeOpacity={0.9}
+          style={styles.cardTouchable}
         >
-          <Text style={styles.backTitle}>Choose Your Pet</Text>
-          <View style={styles.petGrid}>
-            {userPets.length > 0 ? (
-              userPets.map((pet) => (
-                <TouchableOpacity
-                  key={pet.id}
-                  style={[
-                    styles.petOption,
-                    pet.id === activePet?.id && styles.petOptionActive,
-                  ]}
-                  onPress={() => handleSelectPet(pet)}
-                  disabled={loading}
-                >
-                  <Text style={styles.petOptionEmoji}>{pet.pet_emoji}</Text>
-                  <Text style={styles.petOptionName} numberOfLines={1}>
-                    {pet.pet_name}
-                  </Text>
-                  {pet.id === activePet?.id && (
-                    <View style={styles.activeIndicator}>
-                      <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))
-            ) : (
-              <Text style={styles.noPetsText}>No pets available</Text>
-            )}
-          </View>
-          <View style={styles.tapHint}>
-            <Ionicons name="arrow-back-outline" size={14} color={Colors.textSecondary} />
-            <Text style={styles.tapHintText}>Tap to go back</Text>
-          </View>
-        </LinearGradient>
+          <LinearGradient
+            colors={['#ffffff', '#f0f0f0']}
+            style={styles.gradientCard}
+          >
+            <Text style={styles.backTitle}>Choose Your Pet</Text>
+            <View style={styles.petGrid}>
+              {userPets.length > 0 ? (
+                userPets.map((pet) => (
+                  <TouchableOpacity
+                    key={pet.id}
+                    style={[
+                      styles.petOption,
+                      pet.id === activePet?.id && styles.petOptionActive,
+                    ]}
+                    onPress={() => handleSelectPet(pet)}
+                    disabled={loading}
+                  >
+                    <Text style={styles.petOptionEmoji}>{pet.pet_emoji}</Text>
+                    <Text style={styles.petOptionName} numberOfLines={1}>
+                      {pet.pet_name}
+                    </Text>
+                    {pet.id === activePet?.id && (
+                      <View style={styles.activeIndicator}>
+                        <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text style={styles.noPetsText}>No pets available</Text>
+              )}
+            </View>
+            <View style={styles.tapHint}>
+              <Ionicons name="arrow-back-outline" size={14} color={Colors.textSecondary} />
+              <Text style={styles.tapHintText}>Tap to go back</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
       </Animated.View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -276,6 +390,9 @@ const styles = StyleSheet.create({
   },
   cardBack: {
     transform: [{ rotateY: '180deg' }],
+  },
+  cardTouchable: {
+    flex: 1,
   },
   gradientCard: {
     flex: 1,

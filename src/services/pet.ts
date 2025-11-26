@@ -451,6 +451,72 @@ export async function switchPet(petId: string) {
 }
 
 /**
+ * Pet the pet (rub/stroke) to increase happiness
+ */
+export async function petPet(amount: number = 5): Promise<PetState> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const currentState = await getPetState();
+    const newMood = Math.min(100, currentState.mood + amount);
+
+    const { data, error } = await supabase
+      .from('pet_state')
+      .update({ mood: newMood })
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error petting pet:', error);
+      throw error;
+    }
+
+    return data as PetState;
+  } catch (error) {
+    console.error('Failed to pet pet:', error);
+    throw error;
+  }
+}
+
+/**
+ * Hit the pet to decrease happiness (negative interaction)
+ */
+export async function hitPet(amount: number = 10): Promise<PetState> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const currentState = await getPetState();
+    const newMood = Math.max(0, currentState.mood - amount);
+
+    const { data, error } = await supabase
+      .from('pet_state')
+      .update({ mood: newMood })
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error hitting pet:', error);
+      throw error;
+    }
+
+    return data as PetState;
+  } catch (error) {
+    console.error('Failed to hit pet:', error);
+    throw error;
+  }
+}
+
+/**
  * Purchase a new pet with XP
  */
 export async function purchasePet(petId: string) {

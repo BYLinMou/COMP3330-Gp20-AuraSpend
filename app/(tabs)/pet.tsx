@@ -14,6 +14,8 @@ import {
   purchasePet,
   getUserPets,
   addXP,
+  petPet,
+  hitPet,
   calculateLevelFromXP,
   AVAILABLE_PETS,
   UserPet,
@@ -30,6 +32,7 @@ export default function PetScreen() {
   const [loading, setLoading] = useState(true);
   const [cooldownEndTime, setCooldownEndTime] = useState<number | null>(null);
   const [remainingTime, setRemainingTime] = useState(0);
+  const [interactCooldown, setInteractCooldown] = useState(false);
 
   useEffect(() => {
     loadPetData();
@@ -183,6 +186,39 @@ export default function PetScreen() {
     }
   };
 
+  // Handle pet interaction (tap/rub = pet, long press = hit)
+  const handlePetInteract = async (action: 'pet' | 'hit') => {
+    if (interactCooldown) return;
+    
+    setInteractCooldown(true);
+    
+    try {
+      if (action === 'pet') {
+        const result = await petPet(5);
+        Alert.alert(
+          t('pet.petted'),
+          t('pet.pettedMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
+          [{ text: t('pet.nice'), style: 'default' }]
+        );
+      } else {
+        const result = await hitPet(10);
+        Alert.alert(
+          t('pet.hit'),
+          t('pet.hitMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
+          [{ text: t('pet.ok'), style: 'default' }]
+        );
+      }
+      
+      await loadPetData();
+    } catch (error: any) {
+      console.error('Error interacting with pet:', error);
+      Alert.alert(t('pet.error'), t('pet.failedToInteract'));
+    } finally {
+      // 3 second cooldown
+      setTimeout(() => setInteractCooldown(false), 3000);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -242,6 +278,7 @@ export default function PetScreen() {
             activePet={activePet} 
             size="large"
             onPetChanged={loadPetData}
+            onInteract={handlePetInteract}
           />
         </View>
 
