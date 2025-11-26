@@ -252,25 +252,13 @@ export default function PetScreen() {
         refreshing={refreshing}
         onRefresh={onRefresh}
       >
-        {/* Pet Speech Bubble */}
-        <View style={styles.speechBubbleContainer}>
-          <LinearGradient
-            colors={Gradients.primary.colors}
-            start={Gradients.primary.start}
-            end={Gradients.primary.end}
-            style={styles.speechBubble}
-          >
-            <Text style={styles.speechText}>{t('pet.speechBubble')}</Text>
-          </LinearGradient>
-          <View style={styles.bubblePointer} />
-        </View>
-
         {/* Flippable Pet Card */}
         <View style={styles.petCardContainer}>
           <FlippablePetCard 
             petState={petState} 
             activePet={activePet} 
             size="large"
+            speechText={t('pet.speechBubble')}
             onPetChanged={loadPetData}
             onInteract={handlePetInteract}
           />
@@ -470,39 +458,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-  },
-  speechBubbleContainer: {
-    marginBottom: 16,
-    alignItems: 'flex-start',
-    paddingRight: 40,
-  },
-  speechBubble: {
-    borderRadius: 16,
-    padding: 12,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  speechText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.white,
-    lineHeight: 20,
-  },
-  bubblePointer: {
-    position: 'absolute',
-    bottom: -8,
-    left: 16,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 0,
-    borderTopWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: Colors.gradientStart,
   },
   petCardContainer: {
     marginBottom: 16,
