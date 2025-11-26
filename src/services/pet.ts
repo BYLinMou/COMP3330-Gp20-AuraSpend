@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { AVAILABLE_PETS as CONFIG_AVAILABLE_PETS, AvailablePet as ConfigAvailablePet, getPetById, getLocalizedPetText, getPetByBreed } from '../config/availablePets';
 
 export interface PetState {
   user_id: string;
@@ -23,23 +24,12 @@ export interface UserPet {
   created_at: string;
 }
 
-export interface AvailablePet {
-  id: string;
-  type: string;
-  breed: string;
-  emoji: string;
-  xp_cost: number;
-  description: string;
-}
+export type AvailablePet = ConfigAvailablePet;
 
 // Available pets for purchase
-export const AVAILABLE_PETS: AvailablePet[] = [
-  { id: 'turtle_common', type: 'turtle', breed: 'Box Turtle', emoji: '🐢', xp_cost: 500, description: 'Slow and steady wins the race!' },
-  { id: 'hamster_syrian', type: 'hamster', breed: 'Syrian Hamster', emoji: '🐹', xp_cost: 400, description: 'Energetic and adorable!' },
-  { id: 'rabbit_dutch', type: 'rabbit', breed: 'Dutch Rabbit', emoji: '🐰', xp_cost: 600, description: 'Hop to financial success!' },
-  { id: 'bird_parrot', type: 'bird', breed: 'Parrot', emoji: '🦜', xp_cost: 700, description: 'Squawk your way to savings!' },
-  { id: 'fish_goldfish', type: 'fish', breed: 'Goldfish', emoji: '🐠', xp_cost: 300, description: 'Swimming in savings!' },
-];
+export const AVAILABLE_PETS: AvailablePet[] = CONFIG_AVAILABLE_PETS;
+
+export { getPetById, getLocalizedPetText, getPetByBreed };
 
 /**
  * Get the current user's pet state

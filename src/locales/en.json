@@ -193,6 +193,10 @@
     "tooManyInteractions": "Too many interactions! Wait {{seconds}}s...",
     "tapHint": "Tap = hit · Long‑press/Swipe = pet · Tap empty = flip",
     "tapToGoBack": "Tap to go back"
+    ,
+    "noPetsAvailable": "No pets available",
+    "switchSuccess": "Switched to {{name}}!",
+    "failedToSwitch": "Failed to switch pet"
   },
   "reports": {
     "title": "Reports",

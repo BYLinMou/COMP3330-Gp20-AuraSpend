@@ -194,6 +194,10 @@
     "tooManyInteractions": "操作过于频繁！请等待 {{seconds}} 秒...",
     "tapHint": "短按 = 打一下 · 长按/滑动 = 摸一摸 · 点空白处 = 翻面",
     "tapToGoBack": "点击返回"
+    ,
+    "noPetsAvailable": "暂无宠物",
+    "switchSuccess": "已切换到 {{name}}！",
+    "failedToSwitch": "切换宠物失败"
   },
   "reports": {
     "title": "报告",
