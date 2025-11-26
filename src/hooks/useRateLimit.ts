@@ -29,7 +29,7 @@ interface RateLimitResult {
  * - If either limit is exceeded, tryCall() returns false
  */
 export function useRateLimit(options: RateLimitOptions = {}): RateLimitResult {
-  const { windowMs = 3000, maxCalls = 5, cooldownMs = 1000 } = options;
+  const { windowMs = 10000, maxCalls = 5, cooldownMs = 1000 } = options; // 五秒2次，冷却1秒
   
   const timestamps = useRef<number[]>([]);
   const lastCallTime = useRef<number>(0);

@@ -112,8 +112,7 @@ export default function PetScreen() {
     if (cooldownEndTime && Date.now() < cooldownEndTime) {
       showToast({
         message: t('pet.pleaseWaitMessage', { seconds: remainingTime }),
-        severity: 'warning',
-        duration: 2000
+        severity: 'warning'
       });
       return;
     }
@@ -129,14 +128,12 @@ export default function PetScreen() {
       if (result.leveledUp) {
         showToast({
           message: `🎉 ${t('pet.levelUpMessage', { level: result.pet.level, levels: result.levelsGained })}`,
-          severity: 'success',
-          duration: 3000
+          severity: 'success'
         });
       } else {
         showToast({
           message: t('pet.xpGainedMessage', { xp: result.pet.xp }),
-          severity: 'success',
-          duration: 2000
+          severity: 'success'
         });
       }
       
@@ -156,8 +153,7 @@ export default function PetScreen() {
       if (petState && petState.xp < availablePet.xp_cost) {
         showToast({
           message: t('pet.notEnoughXPMessage', { required: availablePet.xp_cost, current: petState.xp }),
-          severity: 'warning',
-          duration: 3000
+          severity: 'warning'
         });
         return;
       }
@@ -174,8 +170,7 @@ export default function PetScreen() {
                 await purchasePet(petId);
                 showToast({ 
                   message: t('pet.purchaseSuccess', { breed: availablePet.breed }), 
-                  severity: 'success',
-                  duration: 3000
+                  severity: 'success'
                 });
                 await loadPetData();
               } catch (error: any) {
@@ -201,15 +196,13 @@ export default function PetScreen() {
         const result = await petPet(5);
         showToast({
           message: t('pet.pettedMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
-          severity: 'success',
-          duration: 2000
+          severity: 'success'
         });
       } else {
         const result = await hitPet(10);
         showToast({
           message: t('pet.hitMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
-          severity: 'info',
-          duration: 2000
+          severity: 'info'
         });
       }
       

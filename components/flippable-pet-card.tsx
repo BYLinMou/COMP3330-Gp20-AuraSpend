@@ -33,71 +33,27 @@ export default function FlippablePetCard({
   
   // Toast and rate limiting
   const { showToast } = useToast();
-  const { tryCall } = useRateLimit({ windowMs: 3000, maxCalls: 5, cooldownMs: 1000 });
+  const { tryCall } = useRateLimit();
   
   // Animation refs for pet movement
   const bounceAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const interactionInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (interactionInterval.current) {
+        clearInterval(interactionInterval.current);
+      }
+    };
+  }, []);
 
   const isLarge = size === 'large';
   const petSize = isLarge ? 130 : 90;
   const cardHeight = isLarge ? 260 : 200;
-
-  useEffect(() => {
-    startPetAnimations();
-    const animationLoop = setInterval(() => {
-      startPetAnimations();
-    }, 5000);
-    return () => clearInterval(animationLoop);
-  }, []);
-
-  const startPetAnimations = () => {
-    Animated.sequence([
-      Animated.timing(bounceAnim, {
-        toValue: -10,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(bounceAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    Animated.sequence([
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(rotateAnim, {
-        toValue: -1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(rotateAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 1.05,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
 
   // Pet animation (happy bounce + scale)
   const playPetAnimation = () => {
@@ -150,7 +106,7 @@ export default function FlippablePetCard({
     
     // Rate limiting check: 5 interactions per 3 seconds, 1s cooldown between each
     if (!tryCall()) {
-      showToast({ message: 'Too many interactions! Wait a moment...', severity: 'warning', duration: 1500 });
+      showToast({ message: 'Too many interactions! Wait a moment...', severity: 'warning' });
       return;
     }
     
@@ -170,27 +126,48 @@ export default function FlippablePetCard({
     });
   }, [interacting, onInteract, tryCall, showToast]);
 
+  const stopContinuousInteraction = useCallback(() => {
+    if (interactionInterval.current) {
+      clearInterval(interactionInterval.current);
+      interactionInterval.current = null;
+    }
+  }, []);
+
+  const startContinuousInteraction = useCallback(() => {
+    // Trigger immediately (at start of continuous hold)
+    handlePetInteraction('pet');
+    
+    // Then trigger every 1.5s
+    stopContinuousInteraction();
+    interactionInterval.current = setInterval(() => {
+      handlePetInteraction('pet');
+    }, 1000);
+  }, [handlePetInteraction, stopContinuousInteraction]);
+
   // Tap gesture - quick tap = hit (negative interaction)
   const tapGesture = Gesture.Tap()
     .onEnd(() => {
       runOnJS(handlePetInteraction)('hit');
     });
 
-  // Pan gesture - rub left/right to pet (positive interaction)
+  // Pan gesture - rub left/right to pet (positive interaction) - relaxed for easier triggering
   const panGesture = Gesture.Pan()
-    .minDistance(20)
+    .minDistance(5)
     .onEnd((event) => {
-      // Only trigger if mostly horizontal movement
-      if (Math.abs(event.translationX) > 30 && Math.abs(event.translationY) < 50) {
+      // Trigger on any small horizontal movement
+      if (Math.abs(event.translationX) > 10) {
         runOnJS(handlePetInteraction)('pet');
       }
     });
 
   // Long press gesture - pet/stroke (positive interaction)
   const longPressGesture = Gesture.LongPress()
-    .minDuration(400)
-    .onEnd(() => {
-      runOnJS(handlePetInteraction)('pet');
+    .minDuration(1500)
+    .onStart(() => {
+      runOnJS(startContinuousInteraction)();
+    })
+    .onFinalize(() => {
+      runOnJS(stopContinuousInteraction)();
     });
 
   // Combine gestures with priority: longPress > pan > tap

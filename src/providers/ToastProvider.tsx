@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/theme';
@@ -15,6 +15,12 @@ interface ToastContextType {
   showToast: (options: ToastOptions) => void;
 }
 
+interface ToastItem {
+  id: number;
+  message: string;
+  severity: ToastSeverity;
+}
+
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function useToast() {
@@ -25,117 +31,107 @@ export function useToast() {
   return context;
 }
 
+// All toasts use gray color scheme
 const severityColors: Record<ToastSeverity, { bg: string; text: string; icon: string }> = {
-  success: { bg: '#4CAF50', text: '#fff', icon: '✓' },
-  error: { bg: '#f44336', text: '#fff', icon: '✕' },
-  info: { bg: '#2196F3', text: '#fff', icon: 'ℹ' },
-  warning: { bg: '#FF9800', text: '#fff', icon: '⚠' },
+  success: { bg: '#666', text: '#fff', icon: '✓' },
+  error: { bg: '#666', text: '#fff', icon: '✕' },
+  info: { bg: '#666', text: '#fff', icon: 'ℹ' },
+  warning: { bg: '#666', text: '#fff', icon: '⚠' },
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [visible, setVisible] = useState(false);
-  const [message, setMessage] = useState('');
-  const [severity, setSeverity] = useState<ToastSeverity>('info');
-  const translateY = useRef(new Animated.Value(-100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const nextId = useRef(0);
   const insets = useSafeAreaInsets();
 
   const showToast = useCallback((options: ToastOptions) => {
-    const { message: msg, severity: sev = 'info', duration = 2500 } = options;
-
-    // Clear any existing timeout
-    if (hideTimeout.current) {
-      clearTimeout(hideTimeout.current);
-    }
-
-    setMessage(msg);
-    setSeverity(sev);
-    setVisible(true);
-
-    // Animate in
-    Animated.parallel([
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 8,
-        tension: 100,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Schedule hide
-    hideTimeout.current = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: -100,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setVisible(false);
-      });
+    const { message: msg, severity: sev = 'info', duration = 1500 } = options;
+    const id = nextId.current++;
+    
+    setToasts(prev => [...prev, { id, message: msg, severity: sev }]);
+    
+    // Auto remove after duration
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
     }, duration);
-  }, [translateY, opacity]);
-
-  const colorScheme = severityColors[severity];
+  }, []);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {visible && (
-        <Animated.View
-          style={[
-            styles.toastContainer,
-            {
-              top: insets.top + 10,
-              transform: [{ translateY }],
-              opacity,
-              backgroundColor: colorScheme.bg,
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <Text style={[styles.toastIcon, { color: colorScheme.text }]}>
-            {colorScheme.icon}
-          </Text>
-          <Text style={[styles.toastMessage, { color: colorScheme.text }]}>
-            {message}
-          </Text>
-        </Animated.View>
-      )}
+      <View style={[styles.toastWrapper, { top: insets.top + 10 }]} pointerEvents="none">
+        {toasts.map((toast, index) => (
+          <ToastItem key={toast.id} toast={toast} index={index} />
+        ))}
+      </View>
     </ToastContext.Provider>
   );
 }
 
+function ToastItem({ toast, index }: { toast: ToastItem; index: number }) {
+  const translateY = useRef(new Animated.Value(-100)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const colorScheme = severityColors[toast.severity];
+
+  useEffect(() => {
+    // Faster animation - slide in quickly
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.toastContainer,
+        {
+          transform: [{ translateY }],
+          opacity,
+          backgroundColor: colorScheme.bg,
+          marginBottom: index > 0 ? 8 : 0,
+        },
+      ]}
+    >
+      <Text style={[styles.toastIcon, { color: colorScheme.text }]}>
+        {colorScheme.icon}
+      </Text>
+      <Text style={[styles.toastMessage, { color: colorScheme.text }]}>
+        {toast.message}
+      </Text>
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
-  toastContainer: {
+  toastWrapper: {
     position: 'absolute',
     left: 20,
     right: 20,
+    zIndex: 9999,
+  },
+  toastContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 12,
-    zIndex: 9999,
     elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     ...Platform.select({
       web: {
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
       },
     }),
   },
