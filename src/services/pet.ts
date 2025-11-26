@@ -260,21 +260,38 @@ export async function addXP(amount: number) {
     const currentState = await getPetState();
     const newTotalXP = currentState.xp + amount;
     
-    // Calculate new level based on total XP
-    const { level: newLevel } = calculateLevelFromXP(newTotalXP);
-    const leveledUp = newLevel > currentState.level;
-    const levelsGained = newLevel - currentState.level;
+    // Calculate potential new level based on total XP
+    const { level: calculatedLevel } = calculateLevelFromXP(newTotalXP);
+    
+    // Check if level up is allowed (Mood must be 100)
+    let newLevel = currentState.level;
+    let leveledUp = false;
+    let levelsGained = 0;
+    let blockedByMood = false;
+
+    if (calculatedLevel > currentState.level) {
+      if (currentState.mood >= 100) {
+        newLevel = calculatedLevel;
+        leveledUp = true;
+        levelsGained = newLevel - currentState.level;
+      } else {
+        blockedByMood = true;
+      }
+    }
+
+    const updates: any = {
+      xp: newTotalXP,
+      level: newLevel,
+    };
+
+    // Bonus mood if leveled up (10 per level gained)
+    if (leveledUp) {
+      updates.mood = Math.min(100, currentState.mood + (levelsGained * 10));
+    }
 
     const { data, error } = await supabase
       .from('pet_state')
-      .update({
-        xp: newTotalXP,
-        level: newLevel,
-        // Bonus mood if leveled up (10 per level gained)
-        mood: leveledUp 
-          ? Math.min(100, currentState.mood + (levelsGained * 10))
-          : currentState.mood,
-      })
+      .update(updates)
       .eq('user_id', user.id)
       .select()
       .single();
@@ -288,10 +305,135 @@ export async function addXP(amount: number) {
       pet: data as PetState, 
       leveledUp, 
       levelsGained,
-      xpGained: amount 
+      xpGained: amount,
+      blockedByMood
     };
   } catch (error) {
     console.error('Failed to add XP:', error);
+    throw error;
+  }
+}
+
+// ...existing code...
+
+/**
+ * Pet the pet (rub/stroke) to increase happiness
+ */
+export async function petPet(amount: number = 5) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const currentState = await getPetState();
+    let newMood = currentState.mood + amount;
+    let xpGained = 0;
+    let leveledUp = false;
+    let levelsGained = 0;
+
+    // If happiness is already 100 (or reaches 100), add XP
+    if (currentState.mood >= 100) {
+      newMood = 100;
+      xpGained = 5;
+    } else {
+      newMood = Math.min(100, newMood);
+    }
+
+    // Calculate new XP
+    const newTotalXP = currentState.xp + xpGained;
+    
+    // Check for level up (especially if mood just hit 100 or was 100)
+    const { level: calculatedLevel } = calculateLevelFromXP(newTotalXP);
+    let newLevel = currentState.level;
+
+    if (calculatedLevel > currentState.level && newMood >= 100) {
+      newLevel = calculatedLevel;
+      leveledUp = true;
+      levelsGained = newLevel - currentState.level;
+    }
+
+    const { data, error } = await supabase
+      .from('pet_state')
+      .update({ 
+        mood: newMood,
+        xp: newTotalXP,
+        level: newLevel
+      })
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error petting pet:', error);
+      throw error;
+    }
+
+    return { 
+      ...(data as PetState),
+      xpGained,
+      leveledUp,
+      levelsGained
+    };
+  } catch (error) {
+    console.error('Failed to pet pet:', error);
+    throw error;
+  }
+}
+
+/**
+ * Hit the pet to decrease happiness (negative interaction)
+ */
+export async function hitPet(amount: number = 10) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const currentState = await getPetState();
+    let newMood = currentState.mood - amount;
+    let xpLost = 0;
+
+    // If happiness is 0 (or drops to 0), deduct XP
+    if (currentState.mood <= 0) {
+      newMood = 0;
+      xpLost = 10;
+    } else {
+      newMood = Math.max(0, newMood);
+    }
+
+    const newTotalXP = Math.max(0, currentState.xp - xpLost);
+    const { level: newLevel } = calculateLevelFromXP(newTotalXP);
+    const leveledDown = newLevel < currentState.level;
+    const levelsLost = currentState.level - newLevel;
+
+    const { data, error } = await supabase
+      .from('pet_state')
+      .update({ 
+        mood: newMood,
+        xp: newTotalXP,
+        level: newLevel,
+      })
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error hitting pet:', error);
+      throw error;
+    }
+
+    return { 
+      ...(data as PetState),
+      xpLost,
+      leveledDown,
+      levelsLost,
+    };
+  } catch (error) {
+    console.error('Failed to hit pet:', error);
     throw error;
   }
 }
@@ -450,71 +592,7 @@ export async function switchPet(petId: string) {
   }
 }
 
-/**
- * Pet the pet (rub/stroke) to increase happiness
- */
-export async function petPet(amount: number = 5): Promise<PetState> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
 
-    const currentState = await getPetState();
-    const newMood = Math.min(100, currentState.mood + amount);
-
-    const { data, error } = await supabase
-      .from('pet_state')
-      .update({ mood: newMood })
-      .eq('user_id', user.id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error petting pet:', error);
-      throw error;
-    }
-
-    return data as PetState;
-  } catch (error) {
-    console.error('Failed to pet pet:', error);
-    throw error;
-  }
-}
-
-/**
- * Hit the pet to decrease happiness (negative interaction)
- */
-export async function hitPet(amount: number = 10): Promise<PetState> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-
-    const currentState = await getPetState();
-    const newMood = Math.max(0, currentState.mood - amount);
-
-    const { data, error } = await supabase
-      .from('pet_state')
-      .update({ mood: newMood })
-      .eq('user_id', user.id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error hitting pet:', error);
-      throw error;
-    }
-
-    return data as PetState;
-  } catch (error) {
-    console.error('Failed to hit pet:', error);
-    throw error;
-  }
-}
 
 /**
  * Purchase a new pet with XP

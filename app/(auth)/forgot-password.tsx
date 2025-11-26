@@ -43,13 +43,13 @@ export default function ForgotPassword() {
         style={styles.header}
       >
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.white} />
+          <Ionicons name="arrow-back" size={24} color={Colors.black} />
         </TouchableOpacity>
         <View style={styles.logoContainer}>
-          <Ionicons name="lock-closed" size={40} color={Colors.white} />
+          <Ionicons name="lock-closed" size={40} color={Colors.black} />
         </View>
-        <Text style={styles.appName}>Forgot Password</Text>
-        <Text style={styles.subtitle}>Reset your password</Text>
+        <Text style={[styles.appName, { color: '#000' }]}>Forgot Password</Text>
+        <Text style={[styles.subtitle, { color: '#000' }]}>Reset your password</Text>
       </LinearGradient>
 
       <View style={styles.content}>

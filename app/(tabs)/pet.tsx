@@ -5,6 +5,75 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Gradients } from '../../constants/theme';
+import { PET_PHRASES, getRandomPetPhrase } from '../../src/config/petPhrases';
+
+// Decorative corner component - curved flourish matching card radius
+const OrnamentalCorner = ({ position }: { position: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' }) => {
+  const cornerStyles: Record<string, any> = {
+    topLeft: { top: 8, left: 8, transform: [{ rotate: '0deg' }] },
+    topRight: { top: 8, right: 8, transform: [{ rotate: '90deg' }] },
+    bottomLeft: { bottom: 8, left: 8, transform: [{ rotate: '-90deg' }] },
+    bottomRight: { bottom: 8, right: 8, transform: [{ rotate: '180deg' }] },
+  };
+  
+  return (
+    <View style={[petStatusStyles.ornamentalCorner, cornerStyles[position]]}>
+      {/* Outer curved line */}
+      <View style={petStatusStyles.curveOuter} />
+      {/* Inner curved line */}
+      <View style={petStatusStyles.curveInner} />
+      {/* Small accent dot */}
+      <View style={petStatusStyles.accentDot} />
+    </View>
+  );
+};
+
+const petStatusStyles = StyleSheet.create({
+  ornamentalCorner: {
+    position: 'absolute',
+    width: 18,
+    height: 18,
+    zIndex: 10,
+  },
+  // Outer curved flourish (matches card's 16px border radius)
+  curveOuter: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 18,
+    height: 18,
+    borderTopWidth: 1.5,
+    borderLeftWidth: 1.5,
+    borderColor: Colors.primary,
+    borderTopLeftRadius: 16,
+    opacity: 0.4,
+    // Mask to only show the curve in corner area
+  },
+  // Inner curved line (subtle parallel)
+  curveInner: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 10,
+    height: 10,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: Colors.primary,
+    borderTopLeftRadius: 10,
+    opacity: 0.2,
+  },
+  // Small accent dot at corner point
+  accentDot: {
+    position: 'absolute',
+    top: -0.5,
+    left: -0.5,
+    width: 3,
+    height: 3,
+    backgroundColor: Colors.primary,
+    opacity: 0.3,
+    borderRadius: 1.5,
+  },
+});
 import { RefreshableScrollView } from '../../components/refreshable-scroll-view';
 import FlippablePetCard from '../../components/flippable-pet-card';
 import { useLanguage } from '../../src/providers/LanguageProvider';
@@ -34,6 +103,14 @@ export default function PetScreen() {
   const [loading, setLoading] = useState(true);
   const [cooldownEndTime, setCooldownEndTime] = useState<number | null>(null);
   const [remainingTime, setRemainingTime] = useState(0);
+  
+  const [speechText, setSpeechText] = useState(PET_PHRASES.en[0]);
+  const { currentLanguage } = useLanguage();
+
+  const updateSpeech = () => {
+    const language = currentLanguage === 'zh' ? 'zh' : 'en';
+    setSpeechText(prev => getRandomPetPhrase(language, prev));
+  };
 
   useEffect(() => {
     loadPetData();
@@ -120,8 +197,8 @@ export default function PetScreen() {
     try {
       const result = await addXP(100);
       
-      // Set 1 minute cooldown
-      const endTime = Date.now() + 60 * 1000; // 60 seconds
+      // Set 10 minute cooldown
+      const endTime = Date.now() + 10 * 60 * 1000; // 10 minutes
       setCooldownEndTime(endTime);
       await AsyncStorage.setItem('petXPCooldown', endTime.toString());
       
@@ -130,13 +207,19 @@ export default function PetScreen() {
           message: `🎉 ${t('pet.levelUpMessage', { level: result.pet.level, levels: result.levelsGained })}`,
           severity: 'success'
         });
+      } else if (result.blockedByMood) {
+        showToast({
+          message: t('pet.levelUpBlocked', { defaultValue: "Level up blocked! Pet needs 100% happiness." }),
+          severity: 'warning'
+        });
       } else {
         showToast({
-          message: t('pet.xpGainedMessage', { xp: result.pet.xp }),
+          message: t('pet.xpGainedMessage', { xp: result.xpGained }),
           severity: 'success'
         });
       }
       
+      updateSpeech();
       await loadPetData();
     } catch (error: any) {
       console.error('Error adding XP:', error);
@@ -189,21 +272,41 @@ export default function PetScreen() {
     }
   };
 
-  // Handle pet interaction (tap/rub = pet, long press = hit)
+  // Handle pet interaction (pet or hit)
   const handlePetInteract = async (action: 'pet' | 'hit') => {
     try {
+      updateSpeech();
       if (action === 'pet') {
-        const result = await petPet(5);
-        showToast({
-          message: t('pet.pettedMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
-          severity: 'success'
-        });
+        const result: any = await petPet(5);
+        if (result.leveledUp) {
+          showToast({
+            message: `🎉 ${t('pet.levelUpMessage', { level: result.level, levels: result.levelsGained })}`,
+            severity: 'success'
+          });
+        } else if (result.xpGained > 0) {
+           showToast({
+            message: t('pet.pettedMessageXP', { name: activePet?.pet_name || 'Pet', mood: result.mood, xp: result.xpGained, defaultValue: `You petted ${activePet?.pet_name || 'Pet'}! +${result.xpGained} XP` }),
+            severity: 'success'
+          });
+        } else {
+          showToast({
+            message: t('pet.pettedMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
+            severity: 'success'
+          });
+        }
       } else {
-        const result = await hitPet(10);
-        showToast({
-          message: t('pet.hitMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
-          severity: 'info'
-        });
+        const result: any = await hitPet(10);
+        if (result.xpLost > 0) {
+           showToast({
+            message: t('pet.hitMessageXP', { name: activePet?.pet_name || 'Pet', mood: result.mood, xp: result.xpLost, defaultValue: `You hit ${activePet?.pet_name || 'Pet'}! -${result.xpLost} XP` }),
+            severity: 'info'
+          });
+        } else {
+          showToast({
+            message: t('pet.hitMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
+            severity: 'info'
+          });
+        }
       }
       
       await loadPetData();
@@ -224,7 +327,6 @@ export default function PetScreen() {
   }
 
   const happiness = petState?.mood || 0;
-  const energy = petState?.hunger || 0;
   
   // Calculate level progress using new system
   const totalXP = petState?.xp || 0;
@@ -252,32 +354,26 @@ export default function PetScreen() {
         refreshing={refreshing}
         onRefresh={onRefresh}
       >
-        {/* Pet Speech Bubble */}
-        <View style={styles.speechBubbleContainer}>
-          <LinearGradient
-            colors={Gradients.primary.colors}
-            start={Gradients.primary.start}
-            end={Gradients.primary.end}
-            style={styles.speechBubble}
-          >
-            <Text style={styles.speechText}>{t('pet.speechBubble')}</Text>
-          </LinearGradient>
-          <View style={styles.bubblePointer} />
-        </View>
-
         {/* Flippable Pet Card */}
         <View style={styles.petCardContainer}>
           <FlippablePetCard 
             petState={petState} 
             activePet={activePet} 
             size="large"
-            onPetChanged={loadPetData}
+            speechText={speechText}
+            onPetChanged={() => { updateSpeech(); loadPetData(); }}
             onInteract={handlePetInteract}
           />
         </View>
 
         {/* Pet Status Card */}
         <View style={styles.card}>
+          {/* Ornamental Corners */}
+          <OrnamentalCorner position="topLeft" />
+          <OrnamentalCorner position="topRight" />
+          <OrnamentalCorner position="bottomLeft" />
+          <OrnamentalCorner position="bottomRight" />
+          
           <View style={styles.cardHeader}>
             <Ionicons name="heart" size={24} color={Colors.error} />
             <Text style={styles.cardTitle}>{t('pet.petStatus')}</Text>
@@ -290,15 +386,6 @@ export default function PetScreen() {
           </View>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, styles.happinessFill, { width: `${happiness}%` }]} />
-          </View>
-
-          {/* Energy */}
-          <View style={styles.statusItem}>
-            <Text style={styles.statusLabel}>{t('pet.energy')}</Text>
-            <Text style={styles.statusValue}>{energy}%</Text>
-          </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, styles.energyFill, { width: `${energy}%` }]} />
           </View>
 
           {/* Level Progress */}
@@ -322,7 +409,7 @@ export default function PetScreen() {
               <Ionicons name="flash" size={20} color={Colors.warning} />
               <Text style={styles.streakText}>{t('pet.dailyStreak', { count: dailyStreak })}</Text>
             </View>
-            <Text style={styles.streakTime}>{t('pet.lastFed')}: {lastFed}</Text>
+            <Text style={styles.streakTime}>{t('pet.lastFed', { time: lastFed })}</Text>
           </View>
         </View>
 
@@ -353,7 +440,7 @@ export default function PetScreen() {
         <Text style={styles.timerSubtext}>
           {remainingTime > 0 
             ? t('pet.comeBackMessage', { seconds: remainingTime })
-            : t('pet.claimNow')}
+            : t('pet.claimNow', { minutes: 10 })}
         </Text>
 
         {/* Choose Your Pets Section */}
@@ -402,17 +489,17 @@ export default function PetScreen() {
         </View>
 
         {/* Outfit Shop */}
-        <View style={styles.card}>
+        {/* <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="gift" size={24} color={Colors.success} />
             <Text style={styles.cardTitle}>{t('pet.outfitShop')}</Text>
           </View>
           <Text style={styles.shopSubtitle}>
             {t('pet.outfitShopSubtitle')}
-          </Text>
+          </Text> */}
 
           {/* Outfits List */}
-          {outfits.map((outfit) => (
+          {/* {outfits.map((outfit) => (
             <View key={outfit.id} style={styles.outfitItem}>
               <View style={styles.outfitLeft}>
                 <Ionicons
@@ -445,7 +532,7 @@ export default function PetScreen() {
               </TouchableOpacity>
             </View>
           ))}
-        </View>
+        </View> */}
 
         <View style={{ height: 20 }} />
       </RefreshableScrollView>
@@ -470,39 +557,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-  },
-  speechBubbleContainer: {
-    marginBottom: 16,
-    alignItems: 'flex-start',
-    paddingRight: 40,
-  },
-  speechBubble: {
-    borderRadius: 16,
-    padding: 12,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  speechText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.white,
-    lineHeight: 20,
-  },
-  bubblePointer: {
-    position: 'absolute',
-    bottom: -8,
-    left: 16,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 0,
-    borderTopWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: Colors.gradientStart,
   },
   petCardContainer: {
     marginBottom: 16,
@@ -556,9 +610,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   happinessFill: {
-    backgroundColor: Colors.textPrimary,
-  },
-  energyFill: {
     backgroundColor: Colors.textPrimary,
   },
   levelFill: {

@@ -86,13 +86,13 @@ export default function SignUp() {
         style={styles.header}
       >
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.white} />
+          <Ionicons name="arrow-back" size={24} color={Colors.black} />
         </TouchableOpacity>
         <View style={styles.logoContainer}>
           <Text style={styles.logoEmoji}>🐾</Text>
         </View>
-        <Text style={styles.appName}>Create Account</Text>
-        <Text style={styles.subtitle}>Join AuraSpend today</Text>
+        <Text style={[styles.appName, { color: '#000' }]}>Create Account</Text>
+        <Text style={[styles.subtitle, { color: '#000' }]}>Join AuraSpend today</Text>
       </LinearGradient>
 
       <View style={styles.content}>
