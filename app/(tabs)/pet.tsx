@@ -272,7 +272,7 @@ export default function PetScreen() {
     }
   };
 
-  // Handle pet interaction (tap/rub = pet, long press = hit)
+  // Handle pet interaction (pet or hit)
   const handlePetInteract = async (action: 'pet' | 'hit') => {
     try {
       updateSpeech();
@@ -440,7 +440,7 @@ export default function PetScreen() {
         <Text style={styles.timerSubtext}>
           {remainingTime > 0 
             ? t('pet.comeBackMessage', { seconds: remainingTime })
-            : t('pet.claimNow')}
+            : t('pet.claimNow', { minutes: 10 })}
         </Text>
 
         {/* Choose Your Pets Section */}
@@ -489,17 +489,17 @@ export default function PetScreen() {
         </View>
 
         {/* Outfit Shop */}
-        <View style={styles.card}>
+        {/* <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="gift" size={24} color={Colors.success} />
             <Text style={styles.cardTitle}>{t('pet.outfitShop')}</Text>
           </View>
           <Text style={styles.shopSubtitle}>
             {t('pet.outfitShopSubtitle')}
-          </Text>
+          </Text> */}
 
           {/* Outfits List */}
-          {outfits.map((outfit) => (
+          {/* {outfits.map((outfit) => (
             <View key={outfit.id} style={styles.outfitItem}>
               <View style={styles.outfitLeft}>
                 <Ionicons
@@ -532,7 +532,7 @@ export default function PetScreen() {
               </TouchableOpacity>
             </View>
           ))}
-        </View>
+        </View> */}
 
         <View style={{ height: 20 }} />
       </RefreshableScrollView>

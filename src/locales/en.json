@@ -152,7 +152,7 @@
     "waitToClaim": "Wait {{seconds}}s to claim XP ⏰",
     "tapToGainXP": "Tap to gain +100 XP! 🎁",
     "comeBackMessage": "Come back in {{seconds}} seconds to claim your reward!",
-    "claimNow": "Claim your free XP now! Cooldown: 1 minute",
+    "claimNow": "Claim your free XP now! Cooldown: {{minutes}} minutes",
     "pleaseWait": "⏰ Please Wait",
     "pleaseWaitMessage": "You can claim XP again in {{seconds}} seconds.",
     "levelUp": "🎉 Level Up!",
@@ -185,7 +185,9 @@
     "hit": "😢 Ouch!",
     "hitMessage": "You hit {{name}}... Happiness dropped to {{mood}}%",
     "failedToInteract": "Failed to interact with pet. Please try again.",
-    "tooManyInteractions": "Too many interactions! Wait {{seconds}}s..."
+    "tooManyInteractions": "Too many interactions! Wait {{seconds}}s...",
+    "tapHint": "Tap = hit · Long‑press/Swipe = pet · Tap empty = flip",
+    "tapToGoBack": "Tap to go back"
   },
   "reports": {
     "title": "Reports",

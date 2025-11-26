@@ -562,7 +562,7 @@ export default function FlippablePetCard({
                 </Text>
                 <View style={styles.tapHint}>
                   <Ionicons name="hand-left-outline" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.tapHintText}>Tap=poke • Swipe=pet • Tap empty=flip</Text>
+                  <Text style={styles.tapHintText}>{t('pet.tapHint')}</Text>
                 </View>
               </View>
 
@@ -628,7 +628,7 @@ export default function FlippablePetCard({
             </View>
             <View style={styles.tapHint}>
               <Ionicons name="arrow-back-outline" size={14} color={Colors.textSecondary} />
-              <Text style={styles.tapHintText}>Tap to go back</Text>
+              <Text style={styles.tapHintText}>{t('pet.tapToGoBack')}</Text>
             </View>
           </LinearGradient>
         </TouchableOpacity>

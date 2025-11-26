@@ -153,7 +153,7 @@
     "waitToClaim": "等待 {{seconds}} 秒领取 XP ⏰",
     "tapToGainXP": "点击获得 +100 XP！🎁",
     "comeBackMessage": "{{seconds}} 秒后回来领取奖励！",
-    "claimNow": "立即领取免费 XP！冷却时间：1 分钟",
+    "claimNow": "立即领取免费 XP！冷却时间：{{minutes}} 分钟",
     "pleaseWait": "⏰ 请稍候",
     "pleaseWaitMessage": "您可以在 {{seconds}} 秒后再次领取 XP。",
     "levelUp": "🎉 升级了！",
@@ -187,7 +187,8 @@
     "hitMessage": "你打了 {{name}}... 快乐度下降到 {{mood}}%",
     "failedToInteract": "与宠物互动失败。请重试。",
     "tooManyInteractions": "操作过于频繁！请等待 {{seconds}} 秒...",
-    "CurrentBalance": "当前余额"
+    "tapHint": "短按 = 打一下 · 长按/滑动 = 摸一摸 · 点空白处 = 翻面",
+    "tapToGoBack": "点击返回"
   },
   "reports": {
     "title": "报告",
