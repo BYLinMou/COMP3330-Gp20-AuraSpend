@@ -100,9 +100,9 @@ export default function SettingsScreen() {
 
   // External support links (leave empty for now — user will fill these later)
   const [faqUrl, setFaqUrl] = useState('https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend/issues');
-  const [contactUrl, setContactUrl] = useState('https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend/issues');
+  const [contactUrl, setContactUrl] = useState('');
   const [tutorialUrl, setTutorialUrl] = useState('');
-  const [termsUrl, setTermsUrl] = useState('');
+  const [termsUrl, setTermsUrl] = useState('https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend/blob/main/LICENSE');
   const [privacyUrl, setPrivacyUrl] = useState('');
 
   // OpenAI Configuration States
