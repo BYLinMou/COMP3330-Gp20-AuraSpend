@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Switch, Alert, ActivityIndicator, Modal, Keyboard } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Switch, Alert, ActivityIndicator, Modal, Keyboard, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +27,7 @@ import {
   type Category,
 } from '../../src/services/categories';
 import { getCurrencies, type Currency } from '../../src/services/currencies';
-import { getAllBudgets, setBudget, type Budget } from '../../src/services/budgets';
+import { getAllBudgets, setBudget, type Budget, DEFAULT_MONTHLY_BUDGET } from '../../src/services/budgets';
 
 const MONTH_LABEL_OPTIONS: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
 
@@ -70,10 +70,13 @@ export default function SettingsScreen() {
   
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  // Email editing is intentionally disabled - show as read-only
+  const EMAIL_EDITABLE = false;
   const [currency, setCurrency] = useState('USD ($)');
   const [language, setLanguage] = useState('English');
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [monthlyBudget, setMonthlyBudget] = useState('');
+  const [isDefaultBudget, setIsDefaultBudget] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBudgetMonth, setSelectedBudgetMonth] = useState(() => getMonthStartKey(new Date()));
   const [budgetMonthOptions, setBudgetMonthOptions] = useState<string[]>(() => generateMonthKeyRange());
@@ -86,9 +89,21 @@ export default function SettingsScreen() {
   const [weeklyReports, setWeeklyReports] = useState(false);
   const [marketingEmails, setMarketingEmails] = useState(false);
 
+  // Feature flags: disable notifications, preferences, or privacy UI (greyed out)
+  const NOTIFICATIONS_DISABLED = true;
+  const PREFERENCES_DISABLED = true;
+  const PRIVACY_DISABLED = true;
+
   const [darkMode, setDarkMode] = useState(false);
-  const [biometricLogin, setBiometricLogin] = useState(true);
+  const [biometricLogin, setBiometricLogin] = useState(false);
   const [autoSync, setAutoSync] = useState(true);
+
+  // External support links (leave empty for now — user will fill these later)
+  const [faqUrl, setFaqUrl] = useState('https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend/issues');
+  const [contactUrl, setContactUrl] = useState('https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend/issues');
+  const [tutorialUrl, setTutorialUrl] = useState('');
+  const [termsUrl, setTermsUrl] = useState('');
+  const [privacyUrl, setPrivacyUrl] = useState('');
 
   // OpenAI Configuration States
   const [openaiUrl, setOpenaiUrl] = useState('https://api.openai.com/v1');
@@ -256,8 +271,11 @@ export default function SettingsScreen() {
         ? monthEntry.amount
         : monthEntry.amount / 12;
       setMonthlyBudget(monthlyAmount.toString());
+      setIsDefaultBudget(false);
     } else if (selectedBudgetMonth) {
-      setMonthlyBudget('');
+      // Show default budget when none is set for selected month
+      setMonthlyBudget(DEFAULT_MONTHLY_BUDGET.toString());
+      setIsDefaultBudget(true);
     }
   }, [budgetsLoaded, findBudgetForMonth, selectedBudgetMonth, budgetEntries]);
 
@@ -394,6 +412,7 @@ export default function SettingsScreen() {
         updateMonthOptions(updated);
         return updated;
       });
+      setIsDefaultBudget(false);
     } catch (error) {
       console.error('Failed to save budget:', error);
       Alert.alert(t('settings.alerts.error'), t('settings.alerts.failedToSave', { item: 'budget' }));
@@ -414,8 +433,10 @@ export default function SettingsScreen() {
 
       await updateProfile(updates);
 
-      // Also save budget together for convenience
-      await handleSaveBudget();
+      // Only save budget if user explicitly changed it (not the displayed default)
+      if (!isDefaultBudget) {
+        await handleSaveBudget();
+      }
 
       // Refresh global currency after profile update
       await refreshCurrency();
@@ -592,6 +613,24 @@ export default function SettingsScreen() {
     );
   }
 
+  const openExternalLink = async (url: string) => {
+    if (!url) {
+      Alert.alert(t('settings.alerts.error') || 'Error', 'Link not configured yet');
+      return;
+    }
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert(t('settings.alerts.error') || 'Error', `Unable to open: ${url}`);
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (e: any) {
+      console.error('Failed to open URL:', url, e);
+      Alert.alert(t('settings.alerts.error') || 'Error', e?.message || 'Failed to open link');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <RefreshableScrollView 
@@ -652,17 +691,18 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('settings.profile.email')}</Text>
+            <Text style={[styles.inputLabel, !EMAIL_EDITABLE && { color: Colors.textSecondary }]}>{t('settings.profile.email')}</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, !EMAIL_EDITABLE && styles.disabledTextInput]}
               value={email}
               onChangeText={setEmail}
               placeholder={t('settings.profile.emailPlaceholder')}
+              placeholderTextColor={Colors.textSecondary}
               keyboardType="email-address"
               autoCapitalize="none"
-              editable={false}
+              editable={EMAIL_EDITABLE}
             />
-            <Text style={styles.helperText}>{t('settings.profile.emailHelper')}</Text>
+            <Text style={[styles.helperText, !EMAIL_EDITABLE && { color: Colors.textSecondary }]}>{t('settings.profile.emailHelper')}</Text>
           </View>
 
           <View style={styles.row}>
@@ -708,10 +748,15 @@ export default function SettingsScreen() {
               <TextInput
                 style={styles.amountField}
                 value={monthlyBudget}
-                onChangeText={setMonthlyBudget}
+                onChangeText={(val) => { setMonthlyBudget(val); setIsDefaultBudget(false); }}
                 keyboardType="numeric"
                 placeholder="0"
               />
+              {isDefaultBudget && (
+                <Text style={styles.helperText}>
+                  {t('settings.profile.usingDefaultBudget', { symbol: currencySymbol, amount: Number(DEFAULT_MONTHLY_BUDGET).toLocaleString() })}
+                </Text>
+              )}
             </View>
           </View>
 
@@ -980,14 +1025,31 @@ export default function SettingsScreen() {
 
           {expandedSection === 'privacy' && (
             <View style={styles.collapsibleContent}>
-              <TouchableOpacity style={styles.menuItem}>
-                <Ionicons name="download-outline" size={20} color={Colors.textPrimary} />
-                <Text style={styles.menuItemText}>{t('settings.privacy.exportData')}</Text>
+              {/* Import Data - (disabled / placeholder) */}
+              <TouchableOpacity
+                style={[styles.menuItem, PRIVACY_DISABLED && { opacity: 0.6 }]}
+                disabled={PRIVACY_DISABLED}
+              >
+                <Ionicons name="cloud-upload-outline" size={20} color={PRIVACY_DISABLED ? Colors.textSecondary : Colors.textPrimary} />
+                <Text style={[styles.menuItemText, PRIVACY_DISABLED && { color: Colors.textSecondary }]}>{t('settings.privacy.importData')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]}>
-                <Ionicons name="lock-closed-outline" size={20} color={Colors.textPrimary} />
-                <Text style={styles.menuItemText}>{t('settings.privacy.privacySettings')}</Text>
+              {/* Export Data - disabled since download functionality isn't implemented yet */}
+              <TouchableOpacity
+                // style={[styles.menuItem, PRIVACY_DISABLED && { opacity: 0.6, borderBottomWidth: 0 }]}
+                style={[styles.menuItem, PRIVACY_DISABLED && { opacity: 0.6 }]}
+                disabled={PRIVACY_DISABLED}
+              > 
+                <Ionicons name="download-outline" size={20} color={PRIVACY_DISABLED ? Colors.textSecondary : Colors.textPrimary} />
+                <Text style={[styles.menuItemText, PRIVACY_DISABLED && { color: Colors.textSecondary }]}>{t('settings.privacy.exportData')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.menuItem, PRIVACY_DISABLED && { opacity: 0.6, borderBottomWidth: 0 }]}
+                disabled={PRIVACY_DISABLED}
+              >
+                <Ionicons name="lock-closed-outline" size={20} color={PRIVACY_DISABLED ? Colors.textSecondary : Colors.textPrimary} />
+                <Text style={[styles.menuItemText, PRIVACY_DISABLED && { color: Colors.textSecondary }]}>{t('settings.privacy.privacySettings')}</Text>
               </TouchableOpacity>
 
               <View style={styles.privacyInfo}>
@@ -1019,54 +1081,58 @@ export default function SettingsScreen() {
 
           {expandedSection === 'notifications' && (
             <View style={styles.collapsibleContent}>
-              <View style={styles.settingItem}>
+              <View style={[styles.settingItem, NOTIFICATIONS_DISABLED && { opacity: 0.6 }]}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>{t('settings.notifications.budgetAlerts')}</Text>
-                  <Text style={styles.settingDescription}>{t('settings.notifications.budgetAlertsDesc')}</Text>
+                  <Text style={[styles.settingTitle, NOTIFICATIONS_DISABLED && { color: Colors.textSecondary }]}>{t('settings.notifications.budgetAlerts')}</Text>
+                  <Text style={[styles.settingDescription, NOTIFICATIONS_DISABLED && { color: Colors.textSecondary }]}>{t('settings.notifications.budgetAlertsDesc')}</Text>
                 </View>
                 <Switch
                   value={budgetAlerts}
                   onValueChange={setBudgetAlerts}
-                  trackColor={{ false: Colors.gray300, true: Colors.primary }}
+                  disabled={NOTIFICATIONS_DISABLED}
+                  trackColor={{ false: Colors.gray300, true: Colors.gray300 }}
                   thumbColor={Colors.white}
                 />
               </View>
 
-              <View style={styles.settingItem}>
+              <View style={[styles.settingItem, NOTIFICATIONS_DISABLED && { opacity: 0.6 }]}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>{t('settings.notifications.dailyReminders')}</Text>
-                  <Text style={styles.settingDescription}>{t('settings.notifications.dailyRemindersDesc')}</Text>
+                  <Text style={[styles.settingTitle, NOTIFICATIONS_DISABLED && { color: Colors.textSecondary }]}>{t('settings.notifications.dailyReminders')}</Text>
+                  <Text style={[styles.settingDescription, NOTIFICATIONS_DISABLED && { color: Colors.textSecondary }]}>{t('settings.notifications.dailyRemindersDesc')}</Text>
                 </View>
                 <Switch
                   value={dailyReminders}
                   onValueChange={setDailyReminders}
-                  trackColor={{ false: Colors.gray300, true: Colors.primary }}
+                  disabled={NOTIFICATIONS_DISABLED}
+                  trackColor={{ false: Colors.gray300, true: Colors.gray300 }}
                   thumbColor={Colors.white}
                 />
               </View>
 
-              <View style={styles.settingItem}>
+              <View style={[styles.settingItem, NOTIFICATIONS_DISABLED && { opacity: 0.6 }]}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>{t('settings.notifications.weeklyReports')}</Text>
-                  <Text style={styles.settingDescription}>{t('settings.notifications.weeklyReportsDesc')}</Text>
+                  <Text style={[styles.settingTitle, NOTIFICATIONS_DISABLED && { color: Colors.textSecondary }]}>{t('settings.notifications.weeklyReports')}</Text>
+                  <Text style={[styles.settingDescription, NOTIFICATIONS_DISABLED && { color: Colors.textSecondary }]}>{t('settings.notifications.weeklyReportsDesc')}</Text>
                 </View>
                 <Switch
                   value={weeklyReports}
                   onValueChange={setWeeklyReports}
-                  trackColor={{ false: Colors.gray300, true: Colors.primary }}
+                  disabled={NOTIFICATIONS_DISABLED}
+                  trackColor={{ false: Colors.gray300, true: Colors.gray300 }}
                   thumbColor={Colors.white}
                 />
               </View>
 
-              <View style={[styles.settingItem, { borderBottomWidth: 0 }]}>
+              <View style={[styles.settingItem, { borderBottomWidth: 0 }, NOTIFICATIONS_DISABLED && { opacity: 0.6 }]}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>{t('settings.notifications.marketingEmails')}</Text>
-                  <Text style={styles.settingDescription}>{t('settings.notifications.marketingEmailsDesc')}</Text>
+                  <Text style={[styles.settingTitle, NOTIFICATIONS_DISABLED && { color: Colors.textSecondary }]}>{t('settings.notifications.marketingEmails')}</Text>
+                  <Text style={[styles.settingDescription, NOTIFICATIONS_DISABLED && { color: Colors.textSecondary }]}>{t('settings.notifications.marketingEmailsDesc')}</Text>
                 </View>
                 <Switch
                   value={marketingEmails}
                   onValueChange={setMarketingEmails}
-                  trackColor={{ false: Colors.gray300, true: Colors.primary }}
+                  disabled={NOTIFICATIONS_DISABLED}
+                  trackColor={{ false: Colors.gray300, true: Colors.gray300 }}
                   thumbColor={Colors.white}
                 />
               </View>
@@ -1093,28 +1159,31 @@ export default function SettingsScreen() {
 
           {expandedSection === 'preferences' && (
             <View style={styles.collapsibleContent}>
-              <View style={styles.settingItem}>
+
+              <View style={[styles.settingItem, PREFERENCES_DISABLED && { opacity: 0.6 }]}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>{t('settings.preferences.darkMode')}</Text>
-                  <Text style={styles.settingDescription}>{t('settings.preferences.darkModeDesc')}</Text>
+                  <Text style={[styles.settingTitle, PREFERENCES_DISABLED && { color: Colors.textSecondary }]}>{t('settings.preferences.darkMode')}</Text>
+                  <Text style={[styles.settingDescription, PREFERENCES_DISABLED && { color: Colors.textSecondary }]}>{t('settings.preferences.darkModeDesc')}</Text>
                 </View>
                 <Switch
                   value={darkMode}
                   onValueChange={setDarkMode}
-                  trackColor={{ false: Colors.gray300, true: Colors.primary }}
+                  disabled={PREFERENCES_DISABLED}
+                  trackColor={{ false: Colors.gray300, true: Colors.gray300 }}
                   thumbColor={Colors.white}
                 />
               </View>
 
-              <View style={styles.settingItem}>
+              <View style={[styles.settingItem, PREFERENCES_DISABLED && { opacity: 0.6 }]}>
                 <View style={styles.settingLeft}>
-                  <Text style={styles.settingTitle}>{t('settings.preferences.biometricLogin')}</Text>
-                  <Text style={styles.settingDescription}>{t('settings.preferences.biometricLoginDesc')}</Text>
+                  <Text style={[styles.settingTitle, PREFERENCES_DISABLED && { color: Colors.textSecondary }]}>{t('settings.preferences.biometricLogin')}</Text>
+                  <Text style={[styles.settingDescription, PREFERENCES_DISABLED && { color: Colors.textSecondary }]}>{t('settings.preferences.biometricLoginDesc')}</Text>
                 </View>
                 <Switch
                   value={biometricLogin}
                   onValueChange={setBiometricLogin}
-                  trackColor={{ false: Colors.gray300, true: Colors.primary }}
+                  disabled={PREFERENCES_DISABLED}
+                  trackColor={{ false: Colors.gray300, true: Colors.gray300 }}
                   thumbColor={Colors.white}
                 />
               </View>
@@ -1154,23 +1223,43 @@ export default function SettingsScreen() {
 
           {expandedSection === 'support' && (
             <View style={styles.collapsibleContent}>
-              <TouchableOpacity style={styles.menuItem}>
+              <TouchableOpacity
+                style={[styles.menuItem, !faqUrl && { opacity: 0.6 }]}
+                onPress={() => openExternalLink(faqUrl)}
+                disabled={!faqUrl}
+              >
                 <Text style={styles.menuItemText}>{t('settings.support.faq')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuItem}>
+              <TouchableOpacity
+                style={[styles.menuItem, !contactUrl && { opacity: 0.6 }]}
+                onPress={() => openExternalLink(contactUrl)}
+                disabled={!contactUrl}
+              >
                 <Text style={styles.menuItemText}>{t('settings.support.contact')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuItem}>
+              <TouchableOpacity
+                style={[styles.menuItem, !tutorialUrl && { opacity: 0.6 }]}
+                onPress={() => openExternalLink(tutorialUrl)}
+                disabled={!tutorialUrl}
+              >
                 <Text style={styles.menuItemText}>{t('settings.support.tutorial')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuItem}>
+              <TouchableOpacity
+                style={[styles.menuItem, !termsUrl && { opacity: 0.6 }]}
+                onPress={() => openExternalLink(termsUrl)}
+                disabled={!termsUrl}
+              >
                 <Text style={styles.menuItemText}>{t('settings.support.terms')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]}>
+              <TouchableOpacity
+                style={[styles.menuItem, !privacyUrl && { opacity: 0.6 }, { borderBottomWidth: 0 }]}
+                onPress={() => openExternalLink(privacyUrl)}
+                disabled={!privacyUrl}
+              >
                 <Text style={styles.menuItemText}>{t('settings.support.privacy')}</Text>
               </TouchableOpacity>
             </View>
@@ -1537,9 +1626,11 @@ export default function SettingsScreen() {
                         {formatBudgetMonth(monthKey)}
                       </Text>
                       <Text style={styles.currencySubtext}>
-                        {monthlyAmount != null
-                          ? t('settings.modals.setBudget', { symbol: currencySymbol, amount: monthlyAmount.toLocaleString() })
-                          : t('settings.modals.noBudgetSet')}
+                        {monthlyAmount != null ? (
+                          t('settings.modals.setBudget', { symbol: currencySymbol, amount: monthlyAmount.toLocaleString() })
+                        ) : (
+                          `${t('settings.modals.noBudgetSet')} · ${t('settings.profile.usingDefaultBudget', { symbol: currencySymbol, amount: Number(DEFAULT_MONTHLY_BUDGET).toLocaleString() })}`
+                        )}
                       </Text>
                     </View>
                     {selectedBudgetMonth === monthKey && (
@@ -1812,6 +1903,10 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  disabledTextInput: {
+    opacity: 0.8,
     color: Colors.textSecondary,
   },
   addCategoryContainer: {

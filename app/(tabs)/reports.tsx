@@ -14,7 +14,7 @@ import {
   getSpendingSummary,
   type MonthlyTrend,
 } from '../../src/services/reports';
-import { getCurrentBudget, getMonthlyBudgetAmount } from '../../src/services/budgets';
+import { getCurrentBudget, getMonthlyBudgetAmount, getWeeklyBudgetAmount, DEFAULT_MONTHLY_BUDGET } from '../../src/services/budgets';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { useCurrency } from '../../src/providers/CurrencyProvider';
 import { PieChart } from 'react-native-chart-kit';
@@ -25,8 +25,9 @@ const { width } = Dimensions.get('window');
 const CHART_HEIGHT = 160;
 const VERTICAL_PADDING_BOTTOM = 10; // 20% of 160
 
-type TabType = 'trends' | 'compare' | 'merchants' | 'search' | 'breakdown';
-type PeriodType = 'month' | 'week' | 'year';
+// type TabType = 'trends' | 'compare' | 'merchants' | 'search' | 'breakdown';
+type TabType = 'trends' | 'merchants' | 'search' | 'breakdown';
+type PeriodType = 'week' | 'month' | 'year';
 
 type ChartPoint = {
   x: number;
@@ -193,11 +194,14 @@ export default function ReportsScreen() {
       if (period === 'year') {
         // For yearly view, get the full yearly budget amount
         budgetPromise = getCurrentBudget().then(b => {
-          if (!b) return 24000; // Default yearly budget
+          if (!b) return DEFAULT_MONTHLY_BUDGET * 12; // Default yearly budget
           return b.period === 'yearly' ? b.amount : b.amount * 12;
         });
+      } else if (period === 'week') {
+        // For weekly view, get weekly budget
+        budgetPromise = getWeeklyBudgetAmount();
       } else {
-        // For monthly or weekly view, get monthly budget
+        // For monthly view, get monthly budget
         budgetPromise = getMonthlyBudgetAmount();
       }
       dataToLoad.push(budgetPromise);
@@ -271,7 +275,7 @@ export default function ReportsScreen() {
         <View style={styles.summaryCards}>
           <View style={[styles.summaryCard, styles.budgetCard]}>
             <Text style={styles.summaryLabel}>
-              {period === 'year' ? t('reports.yearlyBudget') : t('reports.monthlyBudget')}
+              {period === 'year' ? t('reports.yearlyBudget') : period === 'week' ? t('reports.weeklyBudget') : t('reports.monthlyBudget')}
             </Text>
             <Text style={styles.summaryAmount}>{currencySymbol}{totalBudget.toFixed(2)}</Text>
             <View style={styles.trendIcon}>
@@ -306,14 +310,14 @@ export default function ReportsScreen() {
               {t('reports.breakdown')}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={[styles.tab, activeTab === 'compare' && styles.tabActive]}
             onPress={() => setActiveTab('compare')}
           >
             <Text style={[styles.tabText, activeTab === 'compare' && styles.tabTextActive]}>
               {t('reports.compare')}
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Spending Trends Chart */}
@@ -427,12 +431,12 @@ export default function ReportsScreen() {
         )}
 
         {/* Compare Tab */}
-        {activeTab === 'compare' && (
+        {/* {activeTab === 'compare' && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('reports.comparePeriods')}</Text>
             <Text style={styles.cardSubtitle}>{t('reports.comingSoon')}</Text>
           </View>
-        )}
+        )} */}
 
         {/* Breakdown Tab */}
         {activeTab === 'breakdown' && (
@@ -450,14 +454,6 @@ export default function ReportsScreen() {
               {/* Period Filter */}
               <View style={styles.periodFilter}>
                 <TouchableOpacity
-                  style={[styles.periodButton, period === 'month' && styles.periodButtonActive]}
-                  onPress={() => setPeriod('month')}
-                >
-                  <Text style={[styles.periodButtonText, period === 'month' && styles.periodButtonTextActive]}>
-                    {t('reports.monthly')}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   style={[styles.periodButton, period === 'week' && styles.periodButtonActive]}
                   onPress={() => setPeriod('week')}
                 >
@@ -465,6 +461,14 @@ export default function ReportsScreen() {
                     {t('reports.weekly')}
                   </Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.periodButton, period === 'month' && styles.periodButtonActive]}
+                  onPress={() => setPeriod('month')}
+                >
+                  <Text style={[styles.periodButtonText, period === 'month' && styles.periodButtonTextActive]}>
+                    {t('reports.monthly')}
+                  </Text>
+                </TouchableOpacity>                
                 <TouchableOpacity
                   style={[styles.periodButton, period === 'year' && styles.periodButtonActive]}
                   onPress={() => setPeriod('year')}

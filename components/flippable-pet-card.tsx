@@ -7,7 +7,7 @@ import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { Colors, Gradients } from '../constants/theme';
-import { getUserPets, switchPet, type UserPet, type PetState } from '../src/services/pet';
+import { getUserPets, switchPet, type UserPet, type PetState, getPetById, getPetByBreed, getLocalizedPetText, AVAILABLE_PETS } from '../src/services/pet';
 import { useToast } from '../src/providers/ToastProvider';
 import { useRateLimit } from '../src/hooks/useRateLimit';
 import { PetSpeechBubble } from './pet-speech-bubble';
@@ -66,7 +66,7 @@ export default function FlippablePetCard({
   // Toast and rate limiting
   const { showToast } = useToast();
   const { tryCall, getRemainingTime } = useRateLimit();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const lastToastTime = useRef<number>(0);
   
   // Animation refs for pet movement
@@ -408,14 +408,14 @@ export default function FlippablePetCard({
     try {
       setLoading(true);
       await switchPet(pet.id);
-      showToast({ message: `Switched to ${pet.pet_name}!`, severity: 'success' });
+      showToast({ message: t('pet.switchSuccess', { name: pet.pet_name }), severity: 'success' });
       handleFlip();
       if (onPetChanged) {
         onPetChanged();
       }
     } catch (error: any) {
       console.error('Error switching pet:', error);
-      showToast({ message: 'Failed to switch pet', severity: 'error' });
+      showToast({ message: t('pet.failedToSwitch'), severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -445,6 +445,21 @@ export default function FlippablePetCard({
     inputRange: [-1, 1],
     outputRange: ['-15deg', '15deg'],
   });
+
+  // Localized display name logic for user pet: if the user didn't give a custom name (or the name equals the default breed),
+  // display the localized breed name from config. Otherwise, display the user pet name.
+  const language = i18n.language && i18n.language.startsWith('zh') ? 'zh' : 'en';
+  let displayName = activePet?.pet_name || 'Aura';
+  if (activePet) {
+    const configPet = getPetByBreed(activePet.pet_breed);
+    if (configPet) {
+      const localizedBreed = getLocalizedPetText(configPet, language).breed;
+      const isDefaultName = !activePet.pet_name || activePet.pet_name === configPet.breed || activePet.pet_name === configPet.translations?.[language]?.breed || activePet.pet_name === localizedBreed;
+      if (isDefaultName) {
+        displayName = localizedBreed;
+      }
+    }
+  }
 
   return (
     <View style={[styles.cardContainer, { height: cardHeight }]}>
@@ -555,11 +570,19 @@ export default function FlippablePetCard({
               {/* Bottom: Info */}
               <View style={styles.bottomSection}>
                 <Text style={[styles.petName, isLarge && styles.petNameLarge]}>
-                  {activePet?.pet_name || 'Aura'}
+                  {displayName}
                 </Text>
                 <Text style={styles.petLevel}>
                   Level {petState?.level || 1} • {petState?.xp || 0} XP
                 </Text>
+                  {(() => {
+                    const configPet = activePet ? getPetByBreed(activePet.pet_breed) : undefined;
+                    const localizedBreed = configPet ? getLocalizedPetText(configPet, language).breed : undefined;
+                    if (localizedBreed && localizedBreed !== displayName) {
+                      return <Text style={styles.petBreedSubtitle}>{localizedBreed}</Text>;
+                    }
+                    return null;
+                  })()}
                 <View style={styles.tapHint}>
                   <Ionicons name="hand-left-outline" size={14} color={Colors.textSecondary} />
                   <Text style={styles.tapHintText}>{t('pet.tapHint')}</Text>
@@ -598,7 +621,7 @@ export default function FlippablePetCard({
             <OrnamentalCorner position="bottomLeft" />
             <OrnamentalCorner position="bottomRight" />
             
-            <Text style={styles.backTitle}>Choose Your Pet</Text>
+            <Text style={styles.backTitle}>{t('pet.chooseYourPets')}</Text>
             <View style={styles.petGrid}>
               {userPets.length > 0 ? (
                 userPets.map((pet) => (
@@ -612,9 +635,19 @@ export default function FlippablePetCard({
                     disabled={loading}
                   >
                     <Text style={styles.petOptionEmoji}>{pet.pet_emoji}</Text>
-                    <Text style={styles.petOptionName} numberOfLines={1}>
-                      {pet.pet_name}
-                    </Text>
+                      <Text style={styles.petOptionName} numberOfLines={1}>
+                        {pet.pet_name}
+                      </Text>
+                      {/* Show localized breed if we can find its definition in config */}
+                      {(() => {
+                        const configPet = getPetByBreed(pet.pet_breed);
+                        const language = i18n.language === 'zh' ? 'zh' : 'en';
+                        if (configPet) {
+                          const breedText = getLocalizedPetText(configPet, language).breed;
+                          return <Text style={styles.petOptionSub}>{breedText}</Text>;
+                        }
+                        return null;
+                      })()}
                     {pet.id === activePet?.id && (
                       <View style={styles.activeIndicator}>
                         <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
@@ -623,7 +656,7 @@ export default function FlippablePetCard({
                   </TouchableOpacity>
                 ))
               ) : (
-                <Text style={styles.noPetsText}>No pets available</Text>
+                <Text style={styles.noPetsText}>{t('pet.noPetsAvailable')}</Text>
               )}
             </View>
             <View style={styles.tapHint}>
@@ -776,6 +809,11 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: 8,
   },
+  petBreedSubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: 6,
+  },
   backTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -812,6 +850,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textPrimary,
     textAlign: 'center',
+  },
+  petOptionSub: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
   },
   activeIndicator: {
     position: 'absolute',

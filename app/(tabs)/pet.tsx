@@ -75,6 +75,7 @@ const petStatusStyles = StyleSheet.create({
   },
 });
 import { RefreshableScrollView } from '../../components/refreshable-scroll-view';
+import { useIsFocused } from '@react-navigation/native';
 import FlippablePetCard from '../../components/flippable-pet-card';
 import { useLanguage } from '../../src/providers/LanguageProvider';
 import { useToast } from '../../src/providers/ToastProvider';
@@ -90,6 +91,7 @@ import {
   AVAILABLE_PETS,
   UserPet,
   PetState,
+  getLocalizedPetText,
 } from '../../src/services/pet';
 
 
@@ -106,9 +108,10 @@ export default function PetScreen() {
   
   const [speechText, setSpeechText] = useState(PET_PHRASES.en[0]);
   const { currentLanguage } = useLanguage();
+  const isFocused = useIsFocused();
 
   const updateSpeech = () => {
-    const language = currentLanguage === 'zh' ? 'zh' : 'en';
+    const language = currentLanguage && currentLanguage.startsWith('zh') ? 'zh' : 'en';
     setSpeechText(prev => getRandomPetPhrase(language, prev));
   };
 
@@ -134,6 +137,13 @@ export default function PetScreen() {
     
     loadCooldown();
   }, []);
+
+  // Refresh pet speech when the screen becomes focused (entering the pet screen)
+  useEffect(() => {
+    if (isFocused) {
+      updateSpeech();
+    }
+  }, [isFocused, currentLanguage]);
 
   // Countdown timer
   useEffect(() => {
@@ -181,6 +191,8 @@ export default function PetScreen() {
   async function onRefresh() {
     setRefreshing(true);
     await loadPetData();
+    // Also refresh the pet's speech so manual refresh updates it.
+    updateSpeech();
     setRefreshing(false);
   }
 
@@ -206,11 +218,6 @@ export default function PetScreen() {
         showToast({
           message: `🎉 ${t('pet.levelUpMessage', { level: result.pet.level, levels: result.levelsGained })}`,
           severity: 'success'
-        });
-      } else if (result.blockedByMood) {
-        showToast({
-          message: t('pet.levelUpBlocked', { defaultValue: "Level up blocked! Pet needs 100% happiness." }),
-          severity: 'warning'
         });
       } else {
         showToast({
@@ -241,9 +248,11 @@ export default function PetScreen() {
         return;
       }
 
+      const language = currentLanguage === 'zh' ? 'zh' : 'en';
+      const breedText = getLocalizedPetText(availablePet, language).breed;
       Alert.alert(
         t('pet.purchasePet'),
-        t('pet.purchasePetMessage', { breed: availablePet.breed, cost: availablePet.xp_cost }),
+        t('pet.purchasePetMessage', { breed: breedText, cost: availablePet.xp_cost }),
         [
           { text: t('pet.cancel'), style: 'cancel' },
           {
@@ -252,7 +261,7 @@ export default function PetScreen() {
               try {
                 await purchasePet(petId);
                 showToast({ 
-                  message: t('pet.purchaseSuccess', { breed: availablePet.breed }), 
+                  message: t('pet.purchaseSuccess', { breed: breedText }), 
                   severity: 'success'
                 });
                 await loadPetData();
@@ -455,14 +464,22 @@ export default function PetScreen() {
 
           {/* Available Pets for Purchase */}
           {AVAILABLE_PETS.map((pet) => {
-            const owned = userPets.some(p => p.pet_type === pet.type && p.pet_breed === pet.breed);
+            const language = currentLanguage === 'zh' ? 'zh' : 'en';
+            const { breed: breedText, description: descriptionText } = getLocalizedPetText(pet, language);
+            const owned = userPets.some(u => 
+              u.pet_type === pet.type && (
+                u.pet_breed === pet.breed ||
+                u.pet_breed === pet.translations?.en?.breed ||
+                u.pet_breed === pet.translations?.zh?.breed
+              )
+            );
             return (
               <View key={pet.id} style={styles.petShopItem}>
                 <View style={styles.petShopLeft}>
                   <Text style={styles.petShopEmoji}>{pet.emoji}</Text>
                   <View style={styles.petShopInfo}>
-                    <Text style={styles.petShopName}>{pet.breed}</Text>
-                    <Text style={styles.petShopDescription}>{pet.description}</Text>
+                    <Text style={styles.petShopName}>{breedText}</Text>
+                    <Text style={styles.petShopDescription}>{descriptionText}</Text>
                     {!owned && <Text style={styles.petShopCost}>{pet.xp_cost} XP</Text>}
                   </View>
                 </View>

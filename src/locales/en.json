@@ -136,6 +136,11 @@
     "allowCameraAccess": "Please allow camera access to take receipt photos.",
     "allowPhotosAccess": "Please allow access to your photos to upload receipts.",
     "Delete": "Delete"
+    ,
+    "confirmClearTitle": "Clear Form",
+    "confirmClear": "Are you sure you want to clear all fields?",
+    "clear": "Clear",
+    "cancel": "Cancel"
   },
   "pet": {
     "title": "Pet",
@@ -182,16 +187,23 @@
     "success": "Success",
     "petted": "💕 Petted!",
     "pettedMessage": "You petted {{name}}! Happiness is now {{mood}}%",
+    "pettedMessageXP": "You petted {{name}}! Happiness is now {{mood}}% · +{{xp}} XP",
     "hit": "😢 Ouch!",
     "hitMessage": "You hit {{name}}... Happiness dropped to {{mood}}%",
+    "hitMessageXP": "You hit {{name}}... Happiness dropped to {{mood}}% · -{{xp}} XP",
     "failedToInteract": "Failed to interact with pet. Please try again.",
     "tooManyInteractions": "Too many interactions! Wait {{seconds}}s...",
     "tapHint": "Tap = hit · Long‑press/Swipe = pet · Tap empty = flip",
     "tapToGoBack": "Tap to go back"
+    ,
+    "noPetsAvailable": "No pets available",
+    "switchSuccess": "Switched to {{name}}!",
+    "failedToSwitch": "Failed to switch pet"
   },
   "reports": {
     "title": "Reports",
     "yearlyBudget": "Yearly Budget",
+    "weeklyBudget": "Weekly Budget",
     "monthlyBudget": "Monthly Budget",
     "totalSpent": "Total Spent",
     "trends": "Trends",
@@ -228,6 +240,8 @@
       "language": "Language",
       "monthlyBudget": "Monthly Budget",
       "saveButton": "Save Profile Changes"
+      ,
+      "usingDefaultBudget": "Using default monthly budget: {{symbol}}{{amount}} (not saved)"
     },
     "openai": {
       "title": "OpenAI Configuration",
@@ -262,6 +276,7 @@
     "privacy": {
       "title": "Data & Privacy",
       "exportData": "Export My Data",
+      "importData": "Import Data",
       "privacySettings": "Privacy Settings",
       "privacyText": "Your data is encrypted and securely stored. We never share your personal financial information with third parties."
     },

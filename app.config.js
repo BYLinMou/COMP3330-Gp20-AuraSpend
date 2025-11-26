@@ -11,7 +11,7 @@ export default ({ config }) => {
     console.warn('Please create a .env file with EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY');
   }
 
-  const appVersion = "0.0.9";
+  const appVersion = "0.0.10";
 
   return {
     expo: {
@@ -29,7 +29,8 @@ export default ({ config }) => {
       android: {
         adaptiveIcon: {
           backgroundColor: "#E6F4FE",
-          foregroundImage: "./assets/images/android-icon-foreground.png",
+          // foregroundImage: "./assets/images/android-icon-foreground.png",
+          foregroundImage: "./assets/images/icon.png",
           backgroundImage: "./assets/images/android-icon-background.png",
           monochromeImage: "./assets/images/android-icon-monochrome.png"
         },

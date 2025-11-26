@@ -1,5 +1,8 @@
 import { supabase } from './supabase';
 
+// Default budget constants (exported so other modules can reference)
+export const DEFAULT_MONTHLY_BUDGET = 3000;
+
 export interface Budget {
   id: string;
   user_id: string;
@@ -55,7 +58,7 @@ export async function getMonthlyBudgetAmount(): Promise<number> {
     const budget = await getCurrentBudget();
     
     if (!budget) {
-      return 2000; // Default budget
+      return DEFAULT_MONTHLY_BUDGET; // Default budget
     }
 
     if (budget.period === 'monthly') {
@@ -65,8 +68,35 @@ export async function getMonthlyBudgetAmount(): Promise<number> {
       return budget.amount / 12;
     }
   } catch (error) {
-    console.error('Failed to get monthly budget amount:', error);
-    return 2000; // Default on error
+  console.error('Failed to get monthly budget amount:', error);
+  return DEFAULT_MONTHLY_BUDGET; // Default on error
+  }
+}
+
+/**
+ * Get weekly budget amount
+ * If period is yearly, returns amount / 52
+ * If period is monthly, returns amount / 4.345 (approx weeks/month)
+ * Returns default ~460 if no budget is set
+ */
+export async function getWeeklyBudgetAmount(): Promise<number> {
+  try {
+    const budget = await getCurrentBudget();
+
+    if (!budget) {
+      // Default weekly value based on default monthly
+      return Math.round(DEFAULT_MONTHLY_BUDGET / 4.345);
+    }
+
+    if (budget.period === 'monthly') {
+      return budget.amount / 4.345; // convert monthly to weekly
+    } else {
+      // Yearly budget, divide by 52
+      return budget.amount / 52;
+    }
+  } catch (error) {
+  console.error('Failed to get weekly budget amount:', error);
+  return Math.round(DEFAULT_MONTHLY_BUDGET / 4.345);
   }
 }
 

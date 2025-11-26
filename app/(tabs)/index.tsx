@@ -16,7 +16,7 @@ import {
   type Transaction 
 } from '../../src/services/transactions';
 import { getPaymentMethods } from '../../src/services/payment-methods';
-import { getMonthlyBudgetAmount, getCurrentBudget } from '../../src/services/budgets';
+import { getMonthlyBudgetAmount, getCurrentBudget, DEFAULT_MONTHLY_BUDGET } from '../../src/services/budgets';
 import { getProfile } from '../../src/services/profiles';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { useCurrency } from '../../src/providers/CurrencyProvider';
@@ -66,7 +66,7 @@ export default function HomeScreen() {
   const cardSlideAnim = React.useRef(new Animated.Value(0)).current;
   const transactionsSlideAnim = React.useRef(new Animated.Value(0)).current;
 
-  const [budget, setBudget] = useState(2000); // Budget from Supabase
+  const [budget, setBudget] = useState(DEFAULT_MONTHLY_BUDGET); // Budget from Supabase
   const budgetUsed = Math.round((spent / budget) * 100);
   const limitOptions = [5, 10, 20, 50, 100];
 
@@ -972,6 +972,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
+    maxHeight: 60,
   },
   viewAllTransactionsLeft: {
     flexDirection: 'row',

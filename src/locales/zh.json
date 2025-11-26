@@ -137,6 +137,11 @@
     "allowCameraAccess": "请允许访问相机以拍摄收据照片。",
     "allowPhotosAccess": "请允许访问您的相册以上传收据。",
     "Delete": "删除"
+    ,
+    "confirmClearTitle": "清除表单",
+    "confirmClear": "确定要清除所有字段吗？",
+    "clear": "清除",
+    "cancel": "取消"
   },
   "pet": {
     "title": "宠物",
@@ -183,16 +188,23 @@
     "success": "成功",
     "petted": "💕 抚摸了！",
     "pettedMessage": "你抚摸了 {{name}}！快乐度现在是 {{mood}}%",
+    "pettedMessageXP": "你抚摸了 {{name}}！快乐度现在是 {{mood}}%，获得 +{{xp}} XP",
     "hit": "😢 哎呀！",
     "hitMessage": "你打了 {{name}}... 快乐度下降到 {{mood}}%",
+    "hitMessageXP": "你打了 {{name}}... 快乐度下降到 {{mood}}%，损失 -{{xp}} XP",
     "failedToInteract": "与宠物互动失败。请重试。",
     "tooManyInteractions": "操作过于频繁！请等待 {{seconds}} 秒...",
     "tapHint": "短按 = 打一下 · 长按/滑动 = 摸一摸 · 点空白处 = 翻面",
     "tapToGoBack": "点击返回"
+    ,
+    "noPetsAvailable": "暂无宠物",
+    "switchSuccess": "已切换到 {{name}}！",
+    "failedToSwitch": "切换宠物失败"
   },
   "reports": {
     "title": "报告",
     "yearlyBudget": "年度预算",
+    "weeklyBudget": "每周预算",
     "monthlyBudget": "每月预算",
     "totalSpent": "总支出",
     "trends": "趋势",
@@ -228,7 +240,8 @@
       "currencyPlaceholder": "选择货币",
       "language": "语言",
       "monthlyBudget": "每月预算",
-      "saveButton": "保存个人资料更改"
+      "saveButton": "保存个人资料更改",
+      "usingDefaultBudget": "使用默认每月预算：{{symbol}}{{amount}}（未保存）"
     },
     "openai": {
       "title": "OpenAI 配置",
@@ -263,6 +276,7 @@
     "privacy": {
       "title": "数据与隐私",
       "exportData": "导出我的数据",
+      "importData": "导入数据",
       "privacySettings": "隐私设置",
       "privacyText": "您的数据已加密并安全存储。我们从不与第三方共享您的个人财务信息。"
     },
