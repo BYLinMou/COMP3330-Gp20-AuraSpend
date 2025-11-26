@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Gradients } from '../../constants/theme';
+import { PET_PHRASES, getRandomPetPhrase } from '../../src/config/petPhrases';
 
 // Decorative corner component - curved flourish matching card radius
 const OrnamentalCorner = ({ position }: { position: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' }) => {
@@ -102,6 +103,14 @@ export default function PetScreen() {
   const [loading, setLoading] = useState(true);
   const [cooldownEndTime, setCooldownEndTime] = useState<number | null>(null);
   const [remainingTime, setRemainingTime] = useState(0);
+  
+  const [speechText, setSpeechText] = useState(PET_PHRASES.en[0]);
+  const { currentLanguage } = useLanguage();
+
+  const updateSpeech = () => {
+    const language = currentLanguage === 'zh' ? 'zh' : 'en';
+    setSpeechText(prev => getRandomPetPhrase(language, prev));
+  };
 
   useEffect(() => {
     loadPetData();
@@ -188,8 +197,8 @@ export default function PetScreen() {
     try {
       const result = await addXP(100);
       
-      // Set 1 minute cooldown
-      const endTime = Date.now() + 60 * 1000; // 60 seconds
+      // Set 10 minute cooldown
+      const endTime = Date.now() + 10 * 60 * 1000; // 10 minutes
       setCooldownEndTime(endTime);
       await AsyncStorage.setItem('petXPCooldown', endTime.toString());
       
@@ -198,13 +207,19 @@ export default function PetScreen() {
           message: `🎉 ${t('pet.levelUpMessage', { level: result.pet.level, levels: result.levelsGained })}`,
           severity: 'success'
         });
+      } else if (result.blockedByMood) {
+        showToast({
+          message: t('pet.levelUpBlocked', { defaultValue: "Level up blocked! Pet needs 100% happiness." }),
+          severity: 'warning'
+        });
       } else {
         showToast({
-          message: t('pet.xpGainedMessage', { xp: result.pet.xp }),
+          message: t('pet.xpGainedMessage', { xp: result.xpGained }),
           severity: 'success'
         });
       }
       
+      updateSpeech();
       await loadPetData();
     } catch (error: any) {
       console.error('Error adding XP:', error);
@@ -260,18 +275,38 @@ export default function PetScreen() {
   // Handle pet interaction (tap/rub = pet, long press = hit)
   const handlePetInteract = async (action: 'pet' | 'hit') => {
     try {
+      updateSpeech();
       if (action === 'pet') {
-        const result = await petPet(5);
-        showToast({
-          message: t('pet.pettedMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
-          severity: 'success'
-        });
+        const result: any = await petPet(5);
+        if (result.leveledUp) {
+          showToast({
+            message: `🎉 ${t('pet.levelUpMessage', { level: result.level, levels: result.levelsGained })}`,
+            severity: 'success'
+          });
+        } else if (result.xpGained > 0) {
+           showToast({
+            message: t('pet.pettedMessageXP', { name: activePet?.pet_name || 'Pet', mood: result.mood, xp: result.xpGained, defaultValue: `You petted ${activePet?.pet_name || 'Pet'}! +${result.xpGained} XP` }),
+            severity: 'success'
+          });
+        } else {
+          showToast({
+            message: t('pet.pettedMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
+            severity: 'success'
+          });
+        }
       } else {
-        const result = await hitPet(10);
-        showToast({
-          message: t('pet.hitMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
-          severity: 'info'
-        });
+        const result: any = await hitPet(10);
+        if (result.xpLost > 0) {
+           showToast({
+            message: t('pet.hitMessageXP', { name: activePet?.pet_name || 'Pet', mood: result.mood, xp: result.xpLost, defaultValue: `You hit ${activePet?.pet_name || 'Pet'}! -${result.xpLost} XP` }),
+            severity: 'info'
+          });
+        } else {
+          showToast({
+            message: t('pet.hitMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
+            severity: 'info'
+          });
+        }
       }
       
       await loadPetData();
@@ -325,8 +360,8 @@ export default function PetScreen() {
             petState={petState} 
             activePet={activePet} 
             size="large"
-            speechText={t('pet.speechBubble')}
-            onPetChanged={loadPetData}
+            speechText={speechText}
+            onPetChanged={() => { updateSpeech(); loadPetData(); }}
             onInteract={handlePetInteract}
           />
         </View>
@@ -374,7 +409,7 @@ export default function PetScreen() {
               <Ionicons name="flash" size={20} color={Colors.warning} />
               <Text style={styles.streakText}>{t('pet.dailyStreak', { count: dailyStreak })}</Text>
             </View>
-            <Text style={styles.streakTime}>{t('pet.lastFed')}: {lastFed}</Text>
+            <Text style={styles.streakTime}>{t('pet.lastFed', { time: lastFed })}</Text>
           </View>
         </View>
 
