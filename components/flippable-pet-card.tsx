@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import { runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Colors, Gradients } from '../constants/theme';
+import { Colors } from '../constants/theme';
 import { getUserPets, switchPet, type UserPet, type PetState } from '../src/services/pet';
 import { useToast } from '../src/providers/ToastProvider';
 import { useRateLimit } from '../src/hooks/useRateLimit';
@@ -29,7 +29,6 @@ export default function FlippablePetCard({
   const [userPets, setUserPets] = useState<UserPet[]>([]);
   const [loading, setLoading] = useState(false);
   const [interacting, setInteracting] = useState(false);
-  const [particles, setParticles] = useState<Array<{ id: string; emoji: string; opacity: Animated.Value; translateX: Animated.Value; translateY: Animated.Value; tilt: string }>>([]);
   const flipAnimation = useRef(new Animated.Value(0)).current;
   
   // Toast and rate limiting
@@ -42,16 +41,6 @@ export default function FlippablePetCard({
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  
-  // New animation refs for effects
-  const hitOpacity = useRef(new Animated.Value(0)).current;
-  
-  // Shared value to track if swipe has already triggered an action
-  const hasTriggeredSwipe = useSharedValue(false);
-
-  // Emoji pool for celebration
-  const celebrationEmojis = useRef(['❤️', '💕', '💖', '💗', '✨', '🌟', '⭐', '🎉', '🎊']).current;
-
   const interactionInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Clean up interval on unmount
@@ -65,113 +54,50 @@ export default function FlippablePetCard({
 
   const isLarge = size === 'large';
   const petSize = isLarge ? 130 : 90;
-  const cardHeight = isLarge ? 320 : 240;
+  const cardHeight = isLarge ? 260 : 200;
 
-  // Helper function to select 5 random unique emojis
-  const selectRandomEmojis = (): string[] => {
-    const shuffled = [...celebrationEmojis].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 5);
-  };
-
-  // Pet animation (rotate + celebration)
+  // Pet animation (happy bounce + scale)
   const playPetAnimation = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
-    // Generate 5 random unique emojis
-    const selectedEmojis = selectRandomEmojis();
-    const newParticles: Array<{ id: string; emoji: string; opacity: Animated.Value; translateX: Animated.Value; translateY: Animated.Value; tilt: string }> = [];
-
-    // Create 5 new particles
-    selectedEmojis.forEach((emoji, index) => {
-      const opacity = new Animated.Value(1);
-      const translateX = new Animated.Value(0);
-      const translateY = new Animated.Value(0);
-      
-      const tiltDeg = Math.round((Math.random() - 0.5) * 60); // -30..30 degrees
-      const particle = { 
-        id: `${Date.now()}-${index}`, 
-        emoji,
-        opacity, 
-        translateX, 
-        translateY,
-        tilt: `${tiltDeg}deg`,
-      };
-      newParticles.push(particle);
-      
-      // Divide 360 degrees into 5 sectors with random variation inside each
-      const sectors = 5;
-      const baseAngle = (index * (2 * Math.PI / sectors)); // base angle for each sector
-      const angleVariation = (Math.random() - 0.5) * (Math.PI / sectors); // ±(360/5)/2 variation
-      const randomAngle = baseAngle + angleVariation;
-      
-      // Distance to keep particles within card bounds
-      // Slightly vary distance so particles scatter differently
-      const distance = 70 + Math.random() * 50;
-      const tx = Math.cos(randomAngle) * distance;
-      const ty = Math.sin(randomAngle) * distance;
-      
-      Animated.parallel([
-        Animated.timing(translateX, {
-          toValue: tx,
-          duration: 1800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: ty,
-          duration: 1800,
-          useNativeDriver: true,
-        }),
-        Animated.sequence([
-          Animated.delay(1200),
-          Animated.timing(opacity, {
-            toValue: 0,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]).start(() => {
-        // Remove particle after animation completes
-        setParticles(prev => prev.filter(p => p.id !== particle.id));
-      });
-    });
-    
-    // Add new particles to the list
-    setParticles(prev => [...prev, ...newParticles]);
-
     Animated.parallel([
-      // Rotate animation (wiggle left/right)
       Animated.sequence([
-        Animated.timing(rotateAnim, { toValue: -1, duration: 100, useNativeDriver: true }),
-        Animated.timing(rotateAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
-        Animated.timing(rotateAnim, { toValue: -0.5, duration: 100, useNativeDriver: true }),
-        Animated.timing(rotateAnim, { toValue: 0.5, duration: 100, useNativeDriver: true }),
-        Animated.timing(rotateAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
+        Animated.timing(scaleAnim, {
+          toValue: 1.15,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -15,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
       ]),
     ]).start();
   };
 
-  // Hit animation (shake + red flash)
+  // Hit animation (shake)
   const playHitAnimation = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     
-    // Reset hit opacity (reduced from 0.6 to 0.3 for more transparency)
-    hitOpacity.setValue(0.3);
-
-    Animated.parallel([
-      // Shake
-      Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-      ]),
-      // Red flash fade out
-      Animated.timing(hitOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
     ]).start();
   };
 
@@ -238,13 +164,9 @@ export default function FlippablePetCard({
   // Pan gesture - rub left/right to pet (positive interaction) - relaxed for easier triggering
   const panGesture = Gesture.Pan()
     .minDistance(10)
-    .onStart(() => {
-      hasTriggeredSwipe.value = false;
-    })
     .onUpdate((event) => {
-      // Trigger on any small horizontal movement, but only once per gesture
-      if (!hasTriggeredSwipe.value && Math.abs(event.translationX) > 10) {
-        hasTriggeredSwipe.value = true;
+      // Trigger on any small horizontal movement
+      if (Math.abs(event.translationX) > 10) {
         runOnJS(handlePetInteraction)('pet');
       }
     });
@@ -336,7 +258,7 @@ export default function FlippablePetCard({
 
   const rotate = rotateAnim.interpolate({
     inputRange: [-1, 1],
-    outputRange: ['-15deg', '15deg'],
+    outputRange: ['-8deg', '8deg'],
   });
 
   return (
@@ -362,78 +284,13 @@ export default function FlippablePetCard({
             colors={['#ffffff', '#f5f5f5']}
             style={styles.gradientCard}
           >
-            {/* Card info - bottom layer */}
-            <View style={styles.cardInfoContainer}>
-              <Text style={[styles.petName, isLarge && styles.petNameLarge]}>
-                {activePet?.pet_name || 'Aura'}
-              </Text>
-              <Text style={styles.petLevel}>
-                Level {petState?.level || 1} • {petState?.xp || 0} XP
-              </Text>
-              <View style={styles.tapHint}>
-                <Ionicons name="hand-left-outline" size={14} color={Colors.textSecondary} />
-                <Text style={styles.tapHintText}>Tap=poke • Hold/swipe=pet • Tap card to flip</Text>
-              </View>
-            </View>
-
-            {/* Effects Layer - above text, below pet */}
-            <View style={styles.effectsOverlay} pointerEvents="none">
-              {/* Celebration Particles - scatter in random directions */}
-              {particles.map((particle) => {
-                return (
-                  <Animated.View 
-                    key={particle.id}
-                    style={[{
-                        position: 'absolute',
-                        top: '35%',
-                        left: '50%',
-                        opacity: particle.opacity,
-                        transform: [
-                          { translateX: particle.translateX },
-                          { translateY: particle.translateY },
-                          { rotate: particle.tilt },
-                        ],
-                      }]}
-                  >
-                    <Text style={styles.effectEmoji}>{particle.emoji}</Text>
-                  </Animated.View>
-                );
-              })}
-            </View>
-
-            {/* Pet interaction area - top layer */}
+            {/* Pet interaction area - blocks flip, only pet interactions */}
             <GestureDetector gesture={combinedGesture}>
               <View 
                 style={styles.petInteractionArea}
                 onStartShouldSetResponder={() => true}
                 onTouchEnd={(e) => e.stopPropagation()}
               >
-                {/* Speech Bubble */}
-                <View style={styles.speechBubbleContainer}>
-                  <LinearGradient
-                    colors={Gradients.primary.colors}
-                    start={Gradients.primary.start}
-                    end={Gradients.primary.end}
-                    style={styles.speechBubble}
-                  >
-                    <Text style={styles.speechText}>You're building wonderful money habits! 💖</Text>
-                  </LinearGradient>
-                  <View style={styles.bubblePointer} />
-                </View>
-
-                {/* Hit Effect behind pet */}
-                <Animated.View 
-                    style={[
-                        styles.hitEffect, 
-                        { 
-                            width: petSize * 1.4, 
-                            height: petSize * 1.4,
-                            borderRadius: petSize,
-                            opacity: hitOpacity 
-                        }
-                    ]} 
-                />
-
                 <Animated.View 
                   style={[
                     styles.petContainer,
@@ -455,6 +312,18 @@ export default function FlippablePetCard({
                 </Animated.View>
               </View>
             </GestureDetector>
+            
+            {/* Card info - part of flip area */}
+            <Text style={[styles.petName, isLarge && styles.petNameLarge]}>
+              {activePet?.pet_name || 'Aura'}
+            </Text>
+            <Text style={styles.petLevel}>
+              Level {petState?.level || 1} • {petState?.xp || 0} XP
+            </Text>
+            <View style={styles.tapHint}>
+              <Ionicons name="hand-left-outline" size={14} color={Colors.textSecondary} />
+              <Text style={styles.tapHintText}>Tap=poke • Hold/swipe=pet • Tap card to flip</Text>
+            </View>
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
@@ -537,85 +406,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   petInteractionArea: {
-    position: 'absolute',
-    top: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 3, // Above effects
-    width: '100%', // Ensure it takes full width to center bubble
-  },
-  speechBubbleContainer: {
-    marginBottom: 12,
-    alignItems: 'flex-start', // Align to start to match the pointer on left
-    width: '90%',
-  },
-  speechBubble: {
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    width: '100%',
-  },
-  speechText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.white,
-    lineHeight: 20,
-    textAlign: 'left', // Left align text
-  },
-  bubblePointer: {
-    position: 'absolute',
-    bottom: -8,
-    left: 24,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 0,
-    borderTopWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: Gradients.primary.colors[0], // Use gradient start color
-  },
-  cardInfoContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingBottom: 20,
-    zIndex: 1, // Bottom layer
-  },
-  effectsOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-    zIndex: 2, // Above text, below pet
-  },
-  effectsContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 0, // Behind pet
-  },
-  hitEffect: {
-    position: 'absolute',
-    backgroundColor: '#FF0000',
-  },
-  celebrationEffect: {
-    position: 'absolute',
-    flexDirection: 'row',
-    gap: 8,
-    top: -20,
-  },
-  effectEmoji: {
-    fontSize: 24,
   },
   cardInfoArea: {
     alignItems: 'center',
