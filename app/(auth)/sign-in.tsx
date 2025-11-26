@@ -41,7 +41,7 @@ export default function SignIn() {
       >
         <View style={styles.logoContainer}>
           <Image 
-            source={require('../../assets/images/logo.jpg')} 
+            source={require('../../assets/images/icon.png')} 
             style={styles.logoImage}
             resizeMode="contain"
           />
