@@ -252,19 +252,6 @@ export default function PetScreen() {
         refreshing={refreshing}
         onRefresh={onRefresh}
       >
-        {/* Pet Speech Bubble */}
-        <View style={styles.speechBubbleContainer}>
-          <LinearGradient
-            colors={Gradients.primary.colors}
-            start={Gradients.primary.start}
-            end={Gradients.primary.end}
-            style={styles.speechBubble}
-          >
-            <Text style={styles.speechText}>{t('pet.speechBubble')}</Text>
-          </LinearGradient>
-          <View style={styles.bubblePointer} />
-        </View>
-
         {/* Flippable Pet Card */}
         <View style={styles.petCardContainer}>
           <FlippablePetCard 

@@ -82,7 +82,7 @@ function ToastItem({ toast, index }: { toast: ToastItem; index: number }) {
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
-        toValue: 1,
+        toValue: 0.85, // Lowered opacity as requested (was 1)
         duration: 150,
         useNativeDriver: true,
       }),
