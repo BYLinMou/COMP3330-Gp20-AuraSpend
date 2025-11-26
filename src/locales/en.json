@@ -234,6 +234,8 @@
       "language": "Language",
       "monthlyBudget": "Monthly Budget",
       "saveButton": "Save Profile Changes"
+      ,
+      "usingDefaultBudget": "Using default monthly budget: {{symbol}}{{amount}} (not saved)"
     },
     "openai": {
       "title": "OpenAI Configuration",

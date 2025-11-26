@@ -234,7 +234,8 @@
       "currencyPlaceholder": "选择货币",
       "language": "语言",
       "monthlyBudget": "每月预算",
-      "saveButton": "保存个人资料更改"
+      "saveButton": "保存个人资料更改",
+      "usingDefaultBudget": "使用默认每月预算：{{symbol}}{{amount}}（未保存）"
     },
     "openai": {
       "title": "OpenAI 配置",

@@ -27,7 +27,7 @@ import {
   type Category,
 } from '../../src/services/categories';
 import { getCurrencies, type Currency } from '../../src/services/currencies';
-import { getAllBudgets, setBudget, type Budget } from '../../src/services/budgets';
+import { getAllBudgets, setBudget, type Budget, DEFAULT_MONTHLY_BUDGET } from '../../src/services/budgets';
 
 const MONTH_LABEL_OPTIONS: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
 
@@ -76,6 +76,7 @@ export default function SettingsScreen() {
   const [language, setLanguage] = useState('English');
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [monthlyBudget, setMonthlyBudget] = useState('');
+  const [isDefaultBudget, setIsDefaultBudget] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBudgetMonth, setSelectedBudgetMonth] = useState(() => getMonthStartKey(new Date()));
   const [budgetMonthOptions, setBudgetMonthOptions] = useState<string[]>(() => generateMonthKeyRange());
@@ -270,8 +271,11 @@ export default function SettingsScreen() {
         ? monthEntry.amount
         : monthEntry.amount / 12;
       setMonthlyBudget(monthlyAmount.toString());
+      setIsDefaultBudget(false);
     } else if (selectedBudgetMonth) {
-      setMonthlyBudget('');
+      // Show default budget when none is set for selected month
+      setMonthlyBudget(DEFAULT_MONTHLY_BUDGET.toString());
+      setIsDefaultBudget(true);
     }
   }, [budgetsLoaded, findBudgetForMonth, selectedBudgetMonth, budgetEntries]);
 
@@ -408,6 +412,7 @@ export default function SettingsScreen() {
         updateMonthOptions(updated);
         return updated;
       });
+      setIsDefaultBudget(false);
     } catch (error) {
       console.error('Failed to save budget:', error);
       Alert.alert(t('settings.alerts.error'), t('settings.alerts.failedToSave', { item: 'budget' }));
@@ -428,8 +433,10 @@ export default function SettingsScreen() {
 
       await updateProfile(updates);
 
-      // Also save budget together for convenience
-      await handleSaveBudget();
+      // Only save budget if user explicitly changed it (not the displayed default)
+      if (!isDefaultBudget) {
+        await handleSaveBudget();
+      }
 
       // Refresh global currency after profile update
       await refreshCurrency();
@@ -741,10 +748,15 @@ export default function SettingsScreen() {
               <TextInput
                 style={styles.amountField}
                 value={monthlyBudget}
-                onChangeText={setMonthlyBudget}
+                onChangeText={(val) => { setMonthlyBudget(val); setIsDefaultBudget(false); }}
                 keyboardType="numeric"
                 placeholder="0"
               />
+              {isDefaultBudget && (
+                <Text style={styles.helperText}>
+                  {t('settings.profile.usingDefaultBudget', { symbol: currencySymbol, amount: Number(DEFAULT_MONTHLY_BUDGET).toLocaleString() })}
+                </Text>
+              )}
             </View>
           </View>
 
@@ -1614,9 +1626,11 @@ export default function SettingsScreen() {
                         {formatBudgetMonth(monthKey)}
                       </Text>
                       <Text style={styles.currencySubtext}>
-                        {monthlyAmount != null
-                          ? t('settings.modals.setBudget', { symbol: currencySymbol, amount: monthlyAmount.toLocaleString() })
-                          : t('settings.modals.noBudgetSet')}
+                        {monthlyAmount != null ? (
+                          t('settings.modals.setBudget', { symbol: currencySymbol, amount: monthlyAmount.toLocaleString() })
+                        ) : (
+                          `${t('settings.modals.noBudgetSet')} · ${t('settings.profile.usingDefaultBudget', { symbol: currencySymbol, amount: Number(DEFAULT_MONTHLY_BUDGET).toLocaleString() })}`
+                        )}
                       </Text>
                     </View>
                     {selectedBudgetMonth === monthKey && (

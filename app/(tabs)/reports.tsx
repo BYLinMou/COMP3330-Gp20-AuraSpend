@@ -14,7 +14,7 @@ import {
   getSpendingSummary,
   type MonthlyTrend,
 } from '../../src/services/reports';
-import { getCurrentBudget, getMonthlyBudgetAmount, getWeeklyBudgetAmount } from '../../src/services/budgets';
+import { getCurrentBudget, getMonthlyBudgetAmount, getWeeklyBudgetAmount, DEFAULT_MONTHLY_BUDGET } from '../../src/services/budgets';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { useCurrency } from '../../src/providers/CurrencyProvider';
 import { PieChart } from 'react-native-chart-kit';
@@ -194,7 +194,7 @@ export default function ReportsScreen() {
       if (period === 'year') {
         // For yearly view, get the full yearly budget amount
         budgetPromise = getCurrentBudget().then(b => {
-          if (!b) return 24000; // Default yearly budget
+          if (!b) return DEFAULT_MONTHLY_BUDGET * 12; // Default yearly budget
           return b.period === 'yearly' ? b.amount : b.amount * 12;
         });
       } else if (period === 'week') {
