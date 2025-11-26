@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../src/providers/AuthProvider';
 import { CurrencyProvider } from '../src/providers/CurrencyProvider';
 import { LanguageProvider } from '../src/providers/LanguageProvider';
+import { ToastProvider } from '../src/providers/ToastProvider';
 import '../src/i18n'; // Initialize i18n
 
 function Gate() {
@@ -39,7 +40,9 @@ export default function RootLayout() {
       <AuthProvider>
         <LanguageProvider>
           <CurrencyProvider>
-            <Gate />
+            <ToastProvider>
+              <Gate />
+            </ToastProvider>
           </CurrencyProvider>
         </LanguageProvider>
       </AuthProvider>

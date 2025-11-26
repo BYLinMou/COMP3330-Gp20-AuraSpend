@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -7,6 +7,8 @@ import { runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../constants/theme';
 import { getUserPets, switchPet, type UserPet, type PetState } from '../src/services/pet';
+import { useToast } from '../src/providers/ToastProvider';
+import { useRateLimit } from '../src/hooks/useRateLimit';
 
 interface FlippablePetCardProps {
   petState: PetState | null;
@@ -29,6 +31,10 @@ export default function FlippablePetCard({
   const [interacting, setInteracting] = useState(false);
   const flipAnimation = useRef(new Animated.Value(0)).current;
   
+  // Toast and rate limiting
+  const { showToast } = useToast();
+  const { tryCall } = useRateLimit({ windowMs: 3000, maxCalls: 5, cooldownMs: 1000 });
+  
   // Animation refs for pet movement
   const bounceAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -37,7 +43,7 @@ export default function FlippablePetCard({
 
   const isLarge = size === 'large';
   const petSize = isLarge ? 130 : 90;
-  const cardHeight = isLarge ? 280 : 200;
+  const cardHeight = isLarge ? 260 : 200;
 
   useEffect(() => {
     startPetAnimations();
@@ -140,8 +146,15 @@ export default function FlippablePetCard({
 
   // Gesture handlers for pet avatar interaction
   const handlePetInteraction = useCallback((action: 'pet' | 'hit') => {
-    if (interacting || !onInteract) return;
+    if (!onInteract) return;
     
+    // Rate limiting check: 5 interactions per 3 seconds, 1s cooldown between each
+    if (!tryCall()) {
+      showToast({ message: 'Too many interactions! Wait a moment...', severity: 'warning', duration: 1500 });
+      return;
+    }
+    
+    if (interacting) return;
     setInteracting(true);
     
     if (action === 'pet') {
@@ -153,9 +166,9 @@ export default function FlippablePetCard({
     // Call onInteract and handle the promise
     Promise.resolve(onInteract(action)).finally(() => {
       // Short cooldown before allowing next interaction
-      setTimeout(() => setInteracting(false), 500);
+      setTimeout(() => setInteracting(false), 300);
     });
-  }, [interacting, onInteract]);
+  }, [interacting, onInteract, tryCall, showToast]);
 
   // Tap gesture - quick tap = hit (negative interaction)
   const tapGesture = Gesture.Tap()
@@ -222,14 +235,14 @@ export default function FlippablePetCard({
     try {
       setLoading(true);
       await switchPet(pet.id);
-      Alert.alert('Success', `Switched to ${pet.pet_name}!`);
+      showToast({ message: `Switched to ${pet.pet_name}!`, severity: 'success' });
       handleFlip();
       if (onPetChanged) {
         onPetChanged();
       }
     } catch (error: any) {
       console.error('Error switching pet:', error);
-      Alert.alert('Error', 'Failed to switch pet');
+      showToast({ message: 'Failed to switch pet', severity: 'error' });
     } finally {
       setLoading(false);
     }
