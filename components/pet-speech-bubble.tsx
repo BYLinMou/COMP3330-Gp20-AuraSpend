@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'flex-start',
     marginBottom: 16,
-    maxWidth: '80%',
+    maxWidth: '90%',
     alignSelf: 'flex-start',
   },
   bubble: {

@@ -54,7 +54,7 @@ export default function FlippablePetCard({
   const hasTriggeredSwipe = useSharedValue(false);
 
   // Emoji pool for celebration
-  const celebrationEmojis = useRef(['❤️', '💕', '💖', '💗', '✨', '🌟', '⭐', '🎉', '🎊']).current;
+  const celebrationEmojis = useRef(['❤️', '💕', '💖', '💗', '💓', '💞', '💘', '✨', '🌟', '⭐', '🌈', '🎈', '🥳', '🎉', '🎊']).current;
 
   const interactionInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -69,7 +69,7 @@ export default function FlippablePetCard({
 
   const isLarge = size === 'large';
   const petSize = isLarge ? 130 : 90;
-  const cardHeight = isLarge ? 350 : 240;
+  const cardHeight = isLarge ? 330 : 240;
 
   // Helper function to select 5 random unique emojis
   const selectRandomEmojis = (): string[] => {
@@ -110,7 +110,7 @@ export default function FlippablePetCard({
       
       // Distance to keep particles within card bounds
       // Slightly vary distance so particles scatter differently
-      const distance = 70 + Math.random() * 50;
+      const distance = 80 + Math.random() * 40;
       const tx = Math.cos(randomAngle) * distance;
       const ty = Math.sin(randomAngle) * distance;
       
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   },
   speechBubbleWrapper: {
     marginBottom: 12,
-    width: '90%',
+    width: '95%',
     alignItems: 'center', // Center the bubble container
   },
   cardInfoContainer: {
