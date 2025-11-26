@@ -406,12 +406,16 @@ export async function hitPet(amount: number = 10) {
     }
 
     const newTotalXP = Math.max(0, currentState.xp - xpLost);
+    const { level: newLevel } = calculateLevelFromXP(newTotalXP);
+    const leveledDown = newLevel < currentState.level;
+    const levelsLost = currentState.level - newLevel;
 
     const { data, error } = await supabase
       .from('pet_state')
       .update({ 
         mood: newMood,
-        xp: newTotalXP
+        xp: newTotalXP,
+        level: newLevel,
       })
       .eq('user_id', user.id)
       .select()
@@ -424,7 +428,9 @@ export async function hitPet(amount: number = 10) {
 
     return { 
       ...(data as PetState),
-      xpLost
+      xpLost,
+      leveledDown,
+      levelsLost,
     };
   } catch (error) {
     console.error('Failed to hit pet:', error);
