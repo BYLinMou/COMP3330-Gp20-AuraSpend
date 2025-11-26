@@ -8,12 +8,15 @@ import { Colors, Gradients } from '../../constants/theme';
 import { RefreshableScrollView } from '../../components/refreshable-scroll-view';
 import FlippablePetCard from '../../components/flippable-pet-card';
 import { useLanguage } from '../../src/providers/LanguageProvider';
+import { useToast } from '../../src/providers/ToastProvider';
 import { 
   getPetState, 
   getActivePet, 
   purchasePet,
   getUserPets,
   addXP,
+  petPet,
+  hitPet,
   calculateLevelFromXP,
   AVAILABLE_PETS,
   UserPet,
@@ -23,6 +26,7 @@ import {
 
 export default function PetScreen() {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
   const [petState, setPetState] = useState<PetState | null>(null);
   const [activePet, setActivePet] = useState<UserPet | null>(null);
@@ -91,8 +95,7 @@ export default function PetScreen() {
       setUserPets(pets);
     } catch (error: any) {
       console.error('Error loading pet data:', error);
-      // Show error to user if needed
-      Alert.alert(t('pet.error'), t('pet.failedToLoad'));
+      showToast({ message: t('pet.failedToLoad'), severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -107,11 +110,10 @@ export default function PetScreen() {
   const handleGainXP = async () => {
     // Check if still in cooldown
     if (cooldownEndTime && Date.now() < cooldownEndTime) {
-      Alert.alert(
-        t('pet.pleaseWait'),
-        t('pet.pleaseWaitMessage', { seconds: remainingTime }),
-        [{ text: t('pet.ok'), style: 'default' }]
-      );
+      showToast({
+        message: t('pet.pleaseWaitMessage', { seconds: remainingTime }),
+        severity: 'warning'
+      });
       return;
     }
 
@@ -124,23 +126,21 @@ export default function PetScreen() {
       await AsyncStorage.setItem('petXPCooldown', endTime.toString());
       
       if (result.leveledUp) {
-        Alert.alert(
-          t('pet.levelUp'),
-          t('pet.levelUpMessage', { level: result.pet.level, levels: result.levelsGained }),
-          [{ text: t('pet.awesome'), style: 'default' }]
-        );
+        showToast({
+          message: `🎉 ${t('pet.levelUpMessage', { level: result.pet.level, levels: result.levelsGained })}`,
+          severity: 'success'
+        });
       } else {
-        Alert.alert(
-          t('pet.xpGained'),
-          t('pet.xpGainedMessage', { xp: result.pet.xp }),
-          [{ text: t('pet.nice'), style: 'default' }]
-        );
+        showToast({
+          message: t('pet.xpGainedMessage', { xp: result.pet.xp }),
+          severity: 'success'
+        });
       }
       
       await loadPetData();
     } catch (error: any) {
       console.error('Error adding XP:', error);
-      Alert.alert(t('pet.error'), t('pet.failedToGainXP'));
+      showToast({ message: t('pet.failedToGainXP'), severity: 'error' });
     }
   };
 
@@ -151,10 +151,10 @@ export default function PetScreen() {
 
       // Check if user has enough XP
       if (petState && petState.xp < availablePet.xp_cost) {
-        Alert.alert(
-          t('pet.notEnoughXP'),
-          t('pet.notEnoughXPMessage', { required: availablePet.xp_cost, current: petState.xp })
-        );
+        showToast({
+          message: t('pet.notEnoughXPMessage', { required: availablePet.xp_cost, current: petState.xp }),
+          severity: 'warning'
+        });
         return;
       }
 
@@ -168,11 +168,17 @@ export default function PetScreen() {
             onPress: async () => {
               try {
                 await purchasePet(petId);
-                Alert.alert(t('pet.success'), t('pet.purchaseSuccess', { breed: availablePet.breed }));
+                showToast({ 
+                  message: t('pet.purchaseSuccess', { breed: availablePet.breed }), 
+                  severity: 'success'
+                });
                 await loadPetData();
               } catch (error: any) {
                 console.error('Error purchasing pet:', error);
-                Alert.alert(t('pet.error'), error.message || t('pet.failedToPurchase'));
+                showToast({ 
+                  message: error.message || t('pet.failedToPurchase'), 
+                  severity: 'error' 
+                });
               }
             },
           },
@@ -180,6 +186,30 @@ export default function PetScreen() {
       );
     } catch (error) {
       console.error('Error purchasing pet:', error);
+    }
+  };
+
+  // Handle pet interaction (tap/rub = pet, long press = hit)
+  const handlePetInteract = async (action: 'pet' | 'hit') => {
+    try {
+      if (action === 'pet') {
+        const result = await petPet(5);
+        showToast({
+          message: t('pet.pettedMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
+          severity: 'success'
+        });
+      } else {
+        const result = await hitPet(10);
+        showToast({
+          message: t('pet.hitMessage', { name: activePet?.pet_name || 'Pet', mood: result.mood }),
+          severity: 'info'
+        });
+      }
+      
+      await loadPetData();
+    } catch (error: any) {
+      console.error('Error interacting with pet:', error);
+      showToast({ message: t('pet.failedToInteract'), severity: 'error' });
     }
   };
 
@@ -242,6 +272,7 @@ export default function PetScreen() {
             activePet={activePet} 
             size="large"
             onPetChanged={loadPetData}
+            onInteract={handlePetInteract}
           />
         </View>
 

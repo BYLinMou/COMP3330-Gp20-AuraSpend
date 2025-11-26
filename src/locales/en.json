@@ -179,7 +179,12 @@
     "failedToLoad": "Failed to load pet data. Please try again.",
     "failedToGainXP": "Failed to add XP. Please try again.",
     "cancel": "Cancel",
-    "success": "Success"
+    "success": "Success",
+    "petted": "💕 Petted!",
+    "pettedMessage": "You petted {{name}}! Happiness is now {{mood}}%",
+    "hit": "😢 Ouch!",
+    "hitMessage": "You hit {{name}}... Happiness dropped to {{mood}}%",
+    "failedToInteract": "Failed to interact with pet. Please try again."
   },
   "reports": {
     "title": "Reports",

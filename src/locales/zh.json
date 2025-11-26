@@ -181,6 +181,11 @@
     "failedToGainXP": "添加 XP 失败。请重试。",
     "cancel": "取消",
     "success": "成功",
+    "petted": "💕 抚摸了！",
+    "pettedMessage": "你抚摸了 {{name}}！快乐度现在是 {{mood}}%",
+    "hit": "😢 哎呀！",
+    "hitMessage": "你打了 {{name}}... 快乐度下降到 {{mood}}%",
+    "failedToInteract": "与宠物互动失败。请重试。",
     "CurrentBalance": "当前余额"
   },
   "reports": {
