@@ -31,6 +31,7 @@ import { getCategories, type Category } from '@/src/services/categories';
 import { getPaymentMethods, type PaymentMethod } from '@/src/services/payment-methods';
 import { getMonthlyBudgetAmount } from '@/src/services/budgets';
 import { useCurrency } from '@/src/providers/CurrencyProvider';
+import FloatingChatButton from '../components/floating-chat-button';
 
 type SourceType = 'all' | 'manual' | 'ocr' | 'ai';
 
@@ -878,6 +879,8 @@ export default function AllTransactionsScreen() {
             </View>
           </SafeAreaView>
         </Modal>
+        {/* Floating Chat Button */}
+        <FloatingChatButton />
       </SafeAreaView>
     </>
   );
