@@ -36,7 +36,7 @@ export default function FlippablePetCard({
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
   const isLarge = size === 'large';
-  const petSize = isLarge ? 180 : 120;
+  const petSize = isLarge ? 130 : 90;
   const cardHeight = isLarge ? 280 : 200;
 
   useEffect(() => {
@@ -271,7 +271,9 @@ export default function FlippablePetCard({
             opacity: frontOpacity,
           },
         ]}
+        pointerEvents={isFlipped ? 'none' : 'auto'}
       >
+        {/* Entire card is tappable for flip */}
         <TouchableOpacity 
           onPress={handleFlip}
           activeOpacity={0.9}
@@ -281,8 +283,13 @@ export default function FlippablePetCard({
             colors={['#ffffff', '#f5f5f5']}
             style={styles.gradientCard}
           >
+            {/* Pet interaction area - blocks flip, only pet interactions */}
             <GestureDetector gesture={combinedGesture}>
-              <View>
+              <View 
+                style={styles.petInteractionArea}
+                onStartShouldSetResponder={() => true}
+                onTouchEnd={(e) => e.stopPropagation()}
+              >
                 <Animated.View 
                   style={[
                     styles.petContainer,
@@ -304,6 +311,8 @@ export default function FlippablePetCard({
                 </Animated.View>
               </View>
             </GestureDetector>
+            
+            {/* Card info - part of flip area */}
             <Text style={[styles.petName, isLarge && styles.petNameLarge]}>
               {activePet?.pet_name || 'Aura'}
             </Text>
@@ -328,6 +337,7 @@ export default function FlippablePetCard({
             opacity: backOpacity,
           },
         ]}
+        pointerEvents={isFlipped ? 'auto' : 'none'}
       >
         <TouchableOpacity 
           onPress={handleFlip}
@@ -393,6 +403,14 @@ const styles = StyleSheet.create({
   },
   cardTouchable: {
     flex: 1,
+  },
+  petInteractionArea: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardInfoArea: {
+    alignItems: 'center',
+    paddingTop: 8,
   },
   gradientCard: {
     flex: 1,
@@ -473,7 +491,7 @@ const styles = StyleSheet.create({
   },
   petOptionActive: {
     borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.secondaryLight,
   },
   petOptionEmoji: {
     fontSize: 32,
