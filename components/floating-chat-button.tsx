@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/theme';
 import { Gradients } from '../constants/theme';
 import { sendChatCompletion, ChatMessage } from '../src/services/openai-client';
-import { allTools, SYSTEM_PROMPT, Tool, parseMultipleToolCalls, isValidToolName } from '../src/services/chat-tools';
+import { allTools, getSystemPromptWithTime, Tool, parseMultipleToolCalls, isValidToolName } from '../src/services/chat-tools';
 import { renderMarkdownAsReactNative } from '../src/utils/markdownHelper';
 
 interface FloatingChatButtonProps {
@@ -168,7 +168,7 @@ export default function FloatingChatButton({ onPress }: FloatingChatButtonProps)
         // Prepare messages for AI
         // Filter out tool call messages and replace with execution summary
         const chatMessages: ChatMessage[] = [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: getSystemPromptWithTime() },
           ...updatedMessages.map(m => {
             if (m.isToolCall && m.toolCall) {
               // If the tool call has been executed with a result, include that context
@@ -376,7 +376,7 @@ export default function FloatingChatButton({ onPress }: FloatingChatButtonProps)
     // Prepare context for AI - show the tool result and let AI decide what to do next
     // AI can either: 1) Call more tools if needed, or 2) Provide a summary
     const toolResultContext: ChatMessage[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPromptWithTime() },
       ...allMessages,
       { 
         role: 'user', 
