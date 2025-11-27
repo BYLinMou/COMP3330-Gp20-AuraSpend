@@ -46,6 +46,12 @@ AuraSpend is a gamified, AI-powered expense tracking application built with Reac
 
 ## 🚀 Getting Started
 
+### Receipt Extraction Model Testing (Optional)
+You can use the Python tool in [`TestTools/ReceiptSmartAnalyzer`](TestTools/ReceiptSmartAnalyzer) to test and evaluate receipt information extraction capabilities. See its README for usage instructions.
+
+### Supabase Setup (Optional)
+If you want to set up your own Supabase backend, see [`supabase/README.md`](supabase/README.md) for step-by-step instructions and example SQL to initialize your database.
+
 ### Prerequisites
 - Node.js (LTS version recommended, e.g., >= 20)
 - npm or yarn
