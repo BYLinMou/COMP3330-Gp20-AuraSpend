@@ -25,7 +25,7 @@ AuraSpend is a gamified, AI-powered expense tracking application built with Reac
 - **Level Up**: Gain XP by logging transactions and staying within budget.
 - **Rewards**: Unlock outfits and new pets as you progress.
 
-### 🤖 AI Assistant
+### 🤖 AI Agent (Aura Assistant)
 - **Floating Chat**: An integrated AI assistant that can answer questions about your spending, summarize data, and perform actions via natural language (e.g., "How much did I spend on food last week?").
 
 ### 🛠 Technical Highlights
@@ -39,7 +39,7 @@ AuraSpend is a gamified, AI-powered expense tracking application built with Reac
 
 - **Frontend**: React Native, Expo, Expo Router, Reanimated
 - **Backend**: Supabase (PostgreSQL, Auth, Realtime, Storage)
-- **AI Integration**: OpenAI, Gemini API
+- **AI Integration**: OpenAI-compatible APIs
 - **Language**: TypeScript
 
 ---
@@ -50,12 +50,13 @@ AuraSpend is a gamified, AI-powered expense tracking application built with Reac
 - Node.js (LTS version recommended, e.g., >= 20)
 - npm or yarn
 - Expo Go app on your mobile device or an Android/iOS Simulator
+- Android users: you can also download the latest APK directly from the Releases page: [https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend/releases/latest](https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend/releases/latest)
 
 ### 1. Clone and Install
 
 ```bash
 # Clone the repository
-git clone [https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend.git](https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend.git)
+git clone https://github.com/BYLinMou/COMP3330-Gp20-AuraSpend.git
 
 # Navigate to project folder
 cd COMP3330-Gp20-AuraSpend
@@ -65,5 +66,5 @@ cp .env.example .env
 # Install dependencies
 npm install
 
-#Start Project
+# Start Project
 npm run start
