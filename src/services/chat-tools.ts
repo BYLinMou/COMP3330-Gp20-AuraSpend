@@ -661,6 +661,8 @@ const toolsDescription = allTools.map(tool => {
 // System prompt for the AI assistant
 // Note: [FENCE] is used as placeholder for triple backticks to avoid template literal issues
 const FENCE = '```';
+import { getCurrentLocalTimeISO, getTimezoneOffset } from '../utils/datetime';
+
 export const SYSTEM_PROMPT = `You are AuraSpend Assistant, a helpful AI assistant for the AuraSpend expense tracking app.
 
 Your role is to help users manage their finances by providing information about their transactions, categories, budgets, and assisting with common tasks like adding expenses, categorizing transactions, and analyzing spending patterns.
@@ -840,3 +842,20 @@ ${FENCE}
 
 Always be helpful, accurate, and EFFICIENT. Your goal is to complete tasks with the minimum number of API calls while providing excellent results.
 `;
+// Append a short note indicating the user's current local time to help the model resolve ambiguous dates/times
+// Returns a short note indicating the user's current local time to help the model resolve ambiguous dates/times
+export function getSystemPromptTimeNote(): string {
+  const currentLocalTime = getCurrentLocalTimeISO();
+  const tzOffset = getTimezoneOffset();
+  return `\nUSER CURRENT LOCAL DATE/TIME\nThe user's current local time is: ${currentLocalTime} (timezone offset: ${tzOffset}).\nWhen dates/times are ambiguous or missing in user input or receipts, use this reference.\n`;
+}
+
+// Returns a short note indicating the user's language preference
+export function getSystemPromptLanguageNote(userLanguage: string): string {
+  return `\nUSER LANGUAGE PREFERENCE\nUser's selected language: ${userLanguage}\nRespond to the user in their preferred language (${userLanguage}).\n`;
+}
+
+// Combined prompt with the time note and language note (dynamic)
+export function getSystemPromptWithTime(userLanguage?: string): string {
+  return SYSTEM_PROMPT + getSystemPromptTimeNote() + (userLanguage ? getSystemPromptLanguageNote(userLanguage) : '');
+}

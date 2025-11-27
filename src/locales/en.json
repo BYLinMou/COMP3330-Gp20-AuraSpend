@@ -21,6 +21,7 @@
     "oneDayAgo": "1 day ago",
     "daysAgo": "{{count}} days ago",
     "paymentMethodBalances": "Payment Method Balances",
+    "hideZeroBalances": "Hide zero balances",
     "noPaymentMethods": "No payment methods found",
     "category": "Category",
     "dateTime": "Date & Time",

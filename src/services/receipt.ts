@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 import { sendChatCompletion, type ChatMessage } from './openai-client';
+import { formatDateISO } from '../utils/datetime';
 
 /**
  * 收据处理服务
@@ -179,17 +180,7 @@ function sanitizeReceiptData(data: ReceiptData): ReceiptData {
  * @param dateString - 输入的日期字符串
  * @returns ISO 格式的日期字符串
  */
-function formatDateISO(dateString: string): string {
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      throw new Error('Invalid date');
-    }
-    return date.toISOString().split('T')[0];
-  } catch {
-    return new Date().toISOString().split('T')[0];
-  }
-}
+// formatDateISO moved to `src/utils/datetime.ts`
 
 /**
  * 完整流程：从图片到结构化数据

@@ -13,7 +13,9 @@ import { getOpenAIConfig } from './openai-config';
 import { getCategories } from './categories';
 import { getCurrencies } from './currencies';
 import { getPaymentMethods } from './payment-methods';
+import { getProfile } from './profiles';
 import type { Currency } from './currencies';
+import { formatDateTimeISO, getCurrentLocalTimeISO, getTimezoneOffset, normalizeDateFromLLM } from '../utils/datetime';
 
 /**
  * 收据数据结构
@@ -224,6 +226,18 @@ async function analyzeReceiptWithMultimodalLLM(
     console.log('[Receipt Processor] Using model:', receiptModel);
     console.log('[Receipt Processor] API URL:', apiUrl);
 
+    // Get user's preferred language from profile
+    let userLanguage = 'en'; // default
+    try {
+      const profile = await getProfile();
+      if (profile?.preferred_language) {
+        userLanguage = profile.preferred_language;
+      }
+    } catch (error) {
+      console.warn('[Receipt Processor] Failed to load user language, using default:', error);
+    }
+    console.log('[Receipt Processor] User language:', userLanguage);
+
     // 构建 API 请求
     const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
     const endpoint = `${baseUrl}/chat/completions`;
@@ -241,26 +255,25 @@ async function analyzeReceiptWithMultimodalLLM(
       ? availablePaymentMethods.join(', ')
       : 'Cash, Credit Card, Debit Card, VISA, Mastercard, American Express, Apple Pay, Google Pay, PayPal, WeChat Pay, Alipay, Bank Transfer, Other';
     
+    const currentLocalTime = getCurrentLocalTimeISO();
+    const tzOffset = getTimezoneOffset();
+
     const systemPrompt = `You are a professional receipt analysis expert. Your task is to extract structured data from receipt images with maximum accuracy.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️  CRITICAL OUTPUT REQUIREMENTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 1. Return ONLY raw JSON - NO markdown code blocks, NO explanations, NO extra text
 2. Every field listed below MUST be present in your response
 3. JSON must be syntactically valid and directly parseable
 4. Use double quotes for all strings, proper number formatting
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 REQUIRED JSON STRUCTURE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {
   "merchant": "Store Name",
   "amount": 45.67,
   "currency": "USD",
-  "date": "2024-11-17T14:30",
+  "date": "2025-11-17T14:30",
   "items": [
     {"name": "Item Name", "amount": 2, "price": 12.50},
     {"name": "Another Item", "amount": 1, "price": 20.67}
@@ -271,12 +284,12 @@ async function analyzeReceiptWithMultimodalLLM(
   "payment_method": "VISA"
 }
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📖 FIELD EXTRACTION RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 - currency (required, string): Choose the currency code from the available list below.
-  Extract from receipt symbols, text, or context. If unclear, use null or best guess.
+  Extract from receipt symbols, text, or context. If the receipt does not clearly indicate the currency,
+  infer it from the receipt's primary language and the user's language preference (${userLanguage}).
+  Note: Some currency symbols (e.g. "$", "¥") are used in multiple countries and languages. Please carefully consider the receipt's language and context when inferring currency.
   Available: ${currencyList}
 - amount (required, number): Total bill amount as a decimal (e.g., 12.34). NOT a string.
 - date (required, string): ISO format YYYY-MM-DDTHH:MM. Use 24-hour time. If missing, use 12:00.
@@ -295,17 +308,27 @@ async function analyzeReceiptWithMultimodalLLM(
 - merchant (required, string): The store/restaurant name. Extract from receipt header or footer.
 - description (required, string): Brief (1-2 sentence) summary of purchase
 
+🌐 LANGUAGE GUIDANCE
+
+User's selected language: ${userLanguage}
+
+**Output Language:** Generate all text fields (merchant, description, item names, category) in the user's selected language (${userLanguage}).
+
+**Currency Inference:** If the receipt doesn't clearly show currency, infer from the receipt's text language and user's language preference.
 
 **RESPONSE FORMAT:**
 Output NOTHING but the JSON object. No markdown formatting, no backticks, no explanation.
 If you cannot extract information, use sensible defaults or empty values.`;
+
+  // Add a short instruction to use user's local current time as a reference where needed
+  const timeReferenceNote = `\n🕒 USER CURRENT LOCAL TIME (REFERENCE)\nThe user's current local time is: ${currentLocalTime} (timezone offset: ${tzOffset}).\nIf the receipt lacks a year or a time, use the user's current local date/time as a reference to fill missing fields.\nIf the receipt gives only month and day (e.g., 11/17 or Nov 17) but no year, assume the year is ${new Date().getFullYear()} unless context suggests otherwise.\nIf the receipt gives no time, assume 12:00 (noon) unless a more accurate time can be inferred from the receipt.\n`;
 
     const requestBody = {
       model: receiptModel,
       messages: [
         {
           role: 'system',
-          content: systemPrompt,
+          content: systemPrompt + timeReferenceNote,
         },
         {
           role: 'user',
@@ -329,6 +352,7 @@ If you cannot extract information, use sensible defaults or empty values.`;
     };
 
     console.log('[Receipt Processor] Sending request to LLM...');
+    console.log('[Receipt Processor] Current local time reference:', currentLocalTime, 'tz offset:', tzOffset);
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -501,10 +525,11 @@ function sanitizeReceiptData(data: any, existingCategories: string[]): ReceiptDa
   // Handle payment_method - allow null if not provided
   const paymentMethod = data.payment_method ? String(data.payment_method).trim() : null;
   
+  const normalizedDate = normalizeDateFromLLM(data.date);
   return {
     merchant: String(data.merchant || 'Unknown Merchant').trim(),
     amount: Math.max(0, Number(data.amount) || 0),
-    date: data.date ? formatDateTimeISO(data.date) : formatDateTimeISO(new Date().toISOString()),
+    date: normalizedDate,
     items: items,
     description: String(data.description || '').trim(),
     category: category,
@@ -514,48 +539,7 @@ function sanitizeReceiptData(data: any, existingCategories: string[]): ReceiptDa
   };
 }
 
-/**
- * ============================================================
- * 辅助函数：格式化日期时间为 ISO 格式
- * ============================================================
- */
-function formatDateTimeISO(dateString: string): string {
-  try {
-    // Check if already in YYYY-MM-DDTHH:MM format
-    const isoFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-    if (isoFormat.test(dateString)) {
-      // Already in correct format, validate and return
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) {
-        return dateString;
-      }
-    }
-    
-    // Try to parse and convert to local time (not UTC)
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      throw new Error('Invalid date');
-    }
-    
-    // Format as YYYY-MM-DDTHH:MM in LOCAL timezone (not UTC)
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  } catch {
-    // Fallback to current local time
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  }
-}
+// Date/time related logic was moved to `src/utils/datetime.ts`
 
 /**
  * ============================================================

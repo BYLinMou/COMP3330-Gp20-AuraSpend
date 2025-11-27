@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity, Modal, Alert, Pressable, Animated } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity, Modal, Alert, Pressable, Animated, Switch, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,6 +59,7 @@ export default function HomeScreen() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [paymentMethodBalances, setPaymentMethodBalances] = useState<Record<string, number>>({});
   const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
+  const [hideZeroBalances, setHideZeroBalances] = useState(true);
   const [showBackSide, setShowBackSide] = useState(false);
   const [showCardContent, setShowCardContent] = useState(true);
   const blurAnimRef = React.useRef<{ [key: string]: Animated.Value }>({});
@@ -322,8 +323,8 @@ export default function HomeScreen() {
         onRefresh={onRefresh}
       >
         {/* Balance Card */}
-        <TouchableOpacity onPress={handleFlip} activeOpacity={0.9}>
-          <View style={styles.flipContainer}>
+        <View style={styles.flipContainer}>
+          <View>
             {/* Front Side */}
             <Animated.View
               style={[
@@ -346,28 +347,30 @@ export default function HomeScreen() {
               ]}
               pointerEvents={isFlipped ? 'none' : 'auto'}
             >
-              <LinearGradient
-                colors={[Colors.gradientStart1, Colors.gradientEnd1]}
-                style={styles.balanceCard}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.balanceHeader}>
-                  <Text style={styles.balanceLabel}>{t('home.remainingBudget')}</Text>
-                  <Ionicons name="wallet-outline" size={24} color={Colors.white} />
-                </View>
-                <Text style={styles.balanceAmount}>{currencySymbol}{balance.toFixed(2)}</Text>
-                <View style={styles.balanceFooter}>
-                  <View style={styles.balanceItem}>
-                    <Ionicons name="wallet" size={16} color={Colors.white} />
-                    <Text style={styles.balanceItemText}>{t('home.budget')}: {currencySymbol}{budget.toFixed(2)}</Text>
+              <TouchableOpacity activeOpacity={1} onPress={handleFlip}>
+                <LinearGradient
+                  colors={[Colors.gradientStart1, Colors.gradientEnd1]}
+                  style={styles.balanceCard}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.balanceHeader}>
+                    <Text style={styles.balanceLabel}>{t('home.remainingBudget')}</Text>
+                    <Ionicons name="wallet-outline" size={24} color={Colors.white} />
                   </View>
-                  <View style={styles.balanceItem}>
-                    <Ionicons name="trending-down" size={16} color={Colors.white} />
-                    <Text style={styles.balanceItemText}>{t('home.spent')}: {currencySymbol}{spent.toFixed(2)}</Text>
+                  <Text style={styles.balanceAmount}>{currencySymbol}{balance.toFixed(2)}</Text>
+                  <View style={styles.balanceFooter}>
+                    <View style={styles.balanceItem}>
+                      <Ionicons name="wallet" size={16} color={Colors.white} />
+                      <Text style={styles.balanceItemText}>{t('home.budget')}: {currencySymbol}{budget.toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.balanceItem}>
+                      <Ionicons name="trending-down" size={16} color={Colors.white} />
+                      <Text style={styles.balanceItemText}>{t('home.spent')}: {currencySymbol}{spent.toFixed(2)}</Text>
+                    </View>
                   </View>
-                </View>
-              </LinearGradient>
+                </LinearGradient>
+              </TouchableOpacity>
             </Animated.View>
 
             {/* Back Side - Only render when visible to avoid blocking */}
@@ -400,23 +403,42 @@ export default function HomeScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={styles.balanceHeader}>
-                  <Text style={styles.balanceLabel}>Payment Method Balances</Text>
-                  <Ionicons name="card-outline" size={24} color={Colors.white} />
-                </View>
+                <TouchableOpacity activeOpacity={1} onPress={handleFlip}>
+                  <View style={styles.balanceHeader}>
+                    <Text style={styles.balanceLabel}>{t('home.paymentMethodBalances')}</Text>
+                    <View style={styles.paymentMethodHeaderRight}>
+                      <Text style={styles.hideZeroLabel}>{t('home.hideZeroBalances') || 'Hide 0'}</Text>
+                      <Switch
+                        value={hideZeroBalances}
+                        onValueChange={setHideZeroBalances}
+                        trackColor={{ false: Colors.gray200, true: Colors.primary }}
+                        thumbColor={hideZeroBalances ? Colors.white : Colors.white}
+                      />
+                    </View>
+                  </View>
+                </TouchableOpacity>
                 
                 {loadingPaymentMethods ? (
                   <View style={styles.paymentMethodsLoading}>
                     <ActivityIndicator size="large" color={Colors.white} />
                   </View>
                 ) : (
-                  <View style={styles.paymentMethodsList}>
-                    {Object.entries(paymentMethodBalances).length === 0 ? (
-                      <Text style={styles.paymentMethodEmpty}>{t('home.noPaymentMethods')}</Text>
-                    ) : (
-                      Object.entries(paymentMethodBalances)
-                        .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
-                        .map(([method, balance]) => {
+                  <ScrollView 
+                    style={[styles.paymentMethodsScrollView, { maxHeight: Dimensions.get('window').height * 0.7 }]}
+                    contentContainerStyle={styles.paymentMethodsList}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                    onStartShouldSetResponder={() => true}
+                    onMoveShouldSetResponder={() => true}
+                  >
+                    {(() => {
+                      const visibleEntries = Object.entries(paymentMethodBalances)
+                        .filter(([, b]) => (!hideZeroBalances || Math.abs(b) > 0))
+                        .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a));
+                      if (visibleEntries.length === 0) {
+                        return <Text style={styles.paymentMethodEmpty}>{t('home.noPaymentMethods')}</Text>;
+                      }
+                      return visibleEntries.map(([method, balance]) => {
                           const icon = 
                             method.toLowerCase().includes('cash') ? 'cash-outline' :
                             method.toLowerCase().includes('octopus') ? 'card-outline' :
@@ -441,14 +463,14 @@ export default function HomeScreen() {
                             </View>
                           );
                         })
-                    )}
-                  </View>
+                    })()}
+                  </ScrollView>
                 )}
               </LinearGradient>
             </Animated.View>
             )}
           </View>
-        </TouchableOpacity>
+        </View>
 
         {/* Monthly Budget */}
         {!isFlipped && showCardContent && (
@@ -1277,9 +1299,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  paymentMethodsList: {
+  paymentMethodsScrollView: {
     marginTop: 12,
+  },
+  paymentMethodsList: {
     gap: 10,
+  },
+  paymentMethodHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  hideZeroLabel: {
+    fontSize: 12,
+    color: Colors.white,
+    opacity: 0.9,
+    fontWeight: '500',
+    textAlign: 'right',
   },
   paymentMethodItem: {
     flexDirection: 'row',

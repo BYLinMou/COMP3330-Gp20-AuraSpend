@@ -11,7 +11,7 @@ export default ({ config }) => {
     console.warn('Please create a .env file with EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY');
   }
 
-  const appVersion = "0.0.10";
+  const appVersion = "0.0.11";
 
   return {
     expo: {
@@ -27,13 +27,14 @@ export default ({ config }) => {
         supportsTablet: true
       },
       android: {
-        adaptiveIcon: {
-          backgroundColor: "#E6F4FE",
-          // foregroundImage: "./assets/images/android-icon-foreground.png",
-          foregroundImage: "./assets/images/icon.png",
-          backgroundImage: "./assets/images/android-icon-background.png",
-          monochromeImage: "./assets/images/android-icon-monochrome.png"
-        },
+        icon: "./assets/images/icon.png",
+        // adaptiveIcon: {
+        //   backgroundColor: "#E6F4FE",
+        //   // foregroundImage: "./assets/images/android-icon-foreground.png",
+        //   foregroundImage: "./assets/images/icon.png",
+        //   backgroundImage: "./assets/images/android-icon-background.png",
+        //   monochromeImage: "./assets/images/android-icon-monochrome.png"
+        // },
         edgeToEdgeEnabled: true,
         predictiveBackGestureEnabled: false,
         permissions: [],

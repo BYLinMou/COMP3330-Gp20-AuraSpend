@@ -21,6 +21,7 @@
     "oneDayAgo": "1 天前",
     "daysAgo": "{{count}} 天前",
     "paymentMethodBalances": "支付方式余额",
+    "hideZeroBalances": "隐藏余额为 0 的项",
     "noPaymentMethods": "未找到支付方式",
     "category": "分类",
     "dateTime": "日期和时间",
