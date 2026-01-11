@@ -57,5 +57,5 @@ app-example
 # due to no key
 .github/workflows/build-ios.yml
 
-# Test Tools
-.TestTools/
+# reset project script
+scripts/reset-project.js

@@ -15,11 +15,7 @@ AuraSpend is a gamified, AI-powered expense tracking application built with Reac
 ## ✨ Key Features
 
 ### 🎞️ Video Demo
-<p align="center">
-  <a href="https://youtu.be/LM8KUN80FBA">
-    <img src="https://img.youtube.com/vi/LM8KUN80FBA/0.jpg" alt="Watch the video">
-  </a>
-</p>
+https://github.com/user-attachments/assets/d20d5fa7-0a90-47a2-a983-387d2c01f2ea
 
 ### 💰 Smart Finance Management
 - **AI Receipt Scanning**: Upload or take photos of receipts. The app uses multimodal LLMs (OpenAI/Gemini) to automatically extract merchant, items, amount, and categories.
