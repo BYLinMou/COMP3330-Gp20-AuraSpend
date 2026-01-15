@@ -342,6 +342,9 @@ export default function AllTransactionsScreen() {
 
         {expandedTransactionId === item.id && (
           <View style={[styles.transactionExpandedDetails, styles.transactionItemExpanded]}>
+            {/* Divider Line */}
+            <View style={styles.expandedDivider} />
+
             {/* Category */}
             <View style={styles.expandedDetailRow}>
               <Text style={styles.expandedDetailLabel}>Category</Text>
@@ -996,7 +999,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gray100,
     paddingHorizontal: 12,
     marginHorizontal: -12,
-    borderRadius: 8,
   },
   transactionLeft: {
     flex: 1,
@@ -1035,6 +1037,11 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: Colors.gray100,
+  },
+  expandedDivider: {
+    height: 1,
+    backgroundColor: Colors.gray200,
+    marginBottom: 12,
   },
   expandedDetailRow: {
     flexDirection: 'row',
