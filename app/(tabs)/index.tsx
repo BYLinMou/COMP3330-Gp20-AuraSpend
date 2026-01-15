@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
   },
   transactionExpandedDetails: {
     paddingHorizontal: 0,
-    paddingTop: 12,
+    paddingTop: 2,
     paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: Colors.gray100,
@@ -1146,7 +1146,7 @@ const styles = StyleSheet.create({
   expandedDivider: {
     height: 1,
     backgroundColor: Colors.gray200,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   expandedDetailRow: {
     flexDirection: 'row',
