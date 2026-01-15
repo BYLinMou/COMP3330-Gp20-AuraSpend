@@ -106,6 +106,31 @@ export async function deleteItem(id: string) {
 }
 
 /**
+ * 更新某条 item 记录
+ */
+export async function updateItem(
+  id: string,
+  updates: Partial<Omit<ItemRow, 'id' | 'transaction_id' | 'user_id'>>
+) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('用户未认证');
+  }
+  const { data, error } = await supabase
+    .from('items')
+    .update(updates)
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .select()
+    .single();
+  if (error) {
+    console.error('[items] 更新条目失败:', error);
+    throw error;
+  }
+  return data as ItemRow;
+}
+
+/**
  * 测试函数：读取指定 transaction 的所有 items 并打印到控制台
  * @param transactionId 交易 ID
  */

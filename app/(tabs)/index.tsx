@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/theme';
 import { RefreshableScrollView } from '../../components/refreshable-scroll-view';
+import { EditTransactionModal } from '../../components/EditTransactionModal';
 import { useLanguage } from '../../src/providers/LanguageProvider';
 import { 
   getRecentTransactions, 
@@ -62,6 +63,8 @@ export default function HomeScreen() {
   const [hideZeroBalances, setHideZeroBalances] = useState(true);
   const [showBackSide, setShowBackSide] = useState(false);
   const [showCardContent, setShowCardContent] = useState(true);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const blurAnimRef = React.useRef<{ [key: string]: Animated.Value }>({});
   const flipAnimation = React.useRef(new Animated.Value(0)).current;
   const cardSlideAnim = React.useRef(new Animated.Value(0)).current;
@@ -871,35 +874,50 @@ export default function HomeScreen() {
                       </View>
                     )}
 
-                    {/* Delete Button */}
-                    <TouchableOpacity
-                      style={styles.transactionDeleteButton}
-                      onPress={() => {
-                        Alert.alert(
-                          t('home.deleteTransaction'),
-                          t('home.deleteTransactionConfirm'),
-                          [
-                            { text: t('home.cancel'), style: 'cancel' },
-                            {
-                              text: t('home.delete'),
-                              style: 'destructive',
-                              onPress: async () => {
-                                try {
-                                  await deleteTransaction(transaction.id);
-                                  setExpandedTransactionId(null);
-                                  loadData();
-                                } catch (error) {
-                                  Alert.alert(t('home.error'), t('home.failedToDelete'));
+                    {/* Action Buttons */}
+                    <View style={styles.transactionActionButtons}>
+                      {/* Edit Button */}
+                      <TouchableOpacity
+                        style={styles.transactionEditButton}
+                        onPress={() => {
+                          setEditingTransaction(transaction);
+                          setShowEditModal(true);
+                        }}
+                      >
+                        <Ionicons name="pencil-outline" size={16} color={Colors.primary} />
+                        <Text style={styles.transactionEditButtonText}>{t('home.edit')}</Text>
+                      </TouchableOpacity>
+
+                      {/* Delete Button */}
+                      <TouchableOpacity
+                        style={styles.transactionDeleteButton}
+                        onPress={() => {
+                          Alert.alert(
+                            t('home.deleteTransaction'),
+                            t('home.deleteTransactionConfirm'),
+                            [
+                              { text: t('home.cancel'), style: 'cancel' },
+                              {
+                                text: t('home.delete'),
+                                style: 'destructive',
+                                onPress: async () => {
+                                  try {
+                                    await deleteTransaction(transaction.id);
+                                    setExpandedTransactionId(null);
+                                    loadData();
+                                  } catch (error) {
+                                    Alert.alert(t('home.error'), t('home.failedToDelete'));
+                                  }
                                 }
                               }
-                            }
-                          ]
-                        );
-                      }}
-                    >
-                      <Ionicons name="trash-outline" size={16} color={Colors.error} />
-                      <Text style={styles.transactionDeleteButtonText}>{t('home.delete')}</Text>
-                    </TouchableOpacity>
+                            ]
+                          );
+                        }}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                        <Text style={styles.transactionDeleteButtonText}>{t('home.delete')}</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
               </Pressable>
@@ -911,6 +929,19 @@ export default function HomeScreen() {
 
         <View style={{ height: 20 }} />
       </RefreshableScrollView>
+
+      {/* Edit Transaction Modal */}
+      <EditTransactionModal
+        visible={showEditModal}
+        transaction={editingTransaction}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingTransaction(null);
+        }}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -1209,6 +1240,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.primary,
   },
+  transactionActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  transactionEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    flex: 1,
+  },
+  transactionEditButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
   transactionDeleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1217,7 +1268,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 0, 0, 0.1)',
     borderRadius: 8,
     paddingVertical: 10,
-    marginTop: 8,
+    flex: 1,
   },
   transactionDeleteButtonText: {
     fontSize: 13,
