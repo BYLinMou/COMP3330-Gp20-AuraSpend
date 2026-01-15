@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, SafeAreaView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Text } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/theme';
 import { useLanguage } from '../src/providers/LanguageProvider';
@@ -106,28 +107,30 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{t('home.editTransaction')}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
-        {loadingItems ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaView style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{t('home.editTransaction')}</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
           </View>
-        ) : (
-          <TransactionForm
-            initialValues={initialValues}
-            onSubmit={handleSubmit}
-            onCancel={onClose}
-            submitLabel={t('home.save')}
-          />
-        )}
-      </SafeAreaView>
+
+          {loadingItems ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          ) : (
+            <TransactionForm
+              initialValues={initialValues}
+              onSubmit={handleSubmit}
+              onCancel={onClose}
+              submitLabel={t('home.save')}
+            />
+          )}
+        </SafeAreaView>
+      </GestureHandlerRootView>
     </Modal>
   );
 };
