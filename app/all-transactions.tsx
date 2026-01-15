@@ -298,6 +298,7 @@ export default function AllTransactionsScreen() {
       >
         <Animated.View style={[
           styles.transactionItem,
+          expandedTransactionId === item.id && styles.transactionItemExpanded,
           {
             opacity: blurAnim.interpolate({
               inputRange: [0, 1],
@@ -340,7 +341,7 @@ export default function AllTransactionsScreen() {
         </Animated.View>
 
         {expandedTransactionId === item.id && (
-          <View style={styles.transactionExpandedDetails}>
+          <View style={[styles.transactionExpandedDetails, styles.transactionItemExpanded]}>
             {/* Category */}
             <View style={styles.expandedDetailRow}>
               <Text style={styles.expandedDetailLabel}>Category</Text>
@@ -990,6 +991,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.gray100,
+  },
+  transactionItemExpanded: {
+    backgroundColor: Colors.gray100,
+    paddingHorizontal: 12,
+    marginHorizontal: -12,
+    borderRadius: 8,
   },
   transactionLeft: {
     flex: 1,

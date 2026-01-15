@@ -51,7 +51,7 @@ export default function HomeScreen() {
   const [convertedAmounts, setConvertedAmounts] = useState<Record<string, number>>({});
   const [balance, setBalance] = useState(0);
   const [spent, setSpent] = useState(0);
-  const [transactionLimit, setTransactionLimit] = useState(5);
+  const [transactionLimit, setTransactionLimit] = useState(10);
   const [showLimitDropdown, setShowLimitDropdown] = useState(false);
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [pressedTransactionId, setPressedTransactionId] = useState<string | null>(null);
@@ -690,6 +690,7 @@ export default function HomeScreen() {
                 >
                   <Animated.View style={[
                     styles.transactionItem,
+                    expandedTransactionId === transaction.id && styles.transactionItemExpanded,
                     {
                       opacity: blurAnim.interpolate({
                         inputRange: [0, 1],
@@ -1090,6 +1091,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.gray100,
+  },
+  transactionItemExpanded: {
+    backgroundColor: Colors.gray100,
+    paddingHorizontal: 12,
+    marginHorizontal: -12,
+    borderRadius: 8,
   },
   transactionContent: {
     flex: 1,
