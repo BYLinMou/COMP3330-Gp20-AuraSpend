@@ -201,7 +201,8 @@ export async function initializeUserAccount(options?: ProfileUpdateInput) {
 
     // Initialize pet state only if it doesn't exist
     if (!existingPet) {
-      const { error: petError } = await supabase
+      // Create the pet_state and return the created row so we can link a default pet
+      const { data: petStateData, error: petError } = await supabase
         .from('pet_state')
         .insert([
           {
@@ -211,10 +212,54 @@ export async function initializeUserAccount(options?: ProfileUpdateInput) {
             xp: 0,
             level: 1,
           }
-        ]);
+        ])
+        .select()
+        .single();
 
       if (petError) {
         console.error('Error initializing pet:', petError);
+      } else {
+        try {
+          // If user has no pets at all yet, create the default "Aura" pet and make it active
+          const { data: existingUserPets } = await supabase
+            .from('user_pets')
+            .select('id')
+            .eq('user_id', user.id)
+            .limit(1);
+
+          if (!existingUserPets || existingUserPets.length === 0) {
+            const { data: newPet, error: newPetError } = await supabase
+              .from('user_pets')
+              .insert([
+                {
+                  user_id: user.id,
+                  pet_type: 'aura',
+                  pet_breed: 'Aura',
+                  pet_name: 'Aura',
+                  pet_emoji: '🦊',
+                  is_active: true,
+                }
+              ])
+              .select()
+              .single();
+
+            if (newPetError) {
+              console.error('Error creating default Aura pet:', newPetError);
+            } else if (newPet) {
+              // Update pet_state with current_pet_id so Aura becomes the active pet
+              const { error: updateStateError } = await supabase
+                .from('pet_state')
+                .update({ current_pet_id: newPet.id })
+                .eq('user_id', user.id);
+
+              if (updateStateError) {
+                console.error('Error linking Aura pet to pet_state:', updateStateError);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error creating default Aura pet:', e);
+        }
       }
     }
 

@@ -458,11 +458,13 @@ export default function PetScreen() {
               : t('pet.tapToGainXP')}
           </Text>
         </TouchableOpacity>
+        {/* Subtext is redundant with the button state; hiding it for clarity.
         <Text style={styles.timerSubtext}>
           {remainingTime > 0 
             ? t('pet.comeBackMessage', { seconds: remainingTime })
             : t('pet.claimNow', { minutes: 10 })}
         </Text>
+        */}
 
         {/* Choose Your Pets Section */}
         <View style={styles.card}>

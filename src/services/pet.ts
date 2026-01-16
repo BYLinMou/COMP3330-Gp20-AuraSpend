@@ -493,7 +493,38 @@ export async function getUserPets() {
       throw error;
     }
 
-    return (data || []) as UserPet[];
+    // Ensure the special default "Aura" pet exists for users who never had an explicit pet row
+    let pets = (data || []) as UserPet[];
+    const hasAura = pets.some(p => p.pet_type === 'aura' || p.pet_breed === 'Aura' || p.pet_name === 'Aura');
+
+    if (!hasAura) {
+      try {
+        const { data: newPet, error: newPetError } = await supabase
+          .from('user_pets')
+          .insert([
+            {
+              user_id: user.id,
+              pet_type: 'aura',
+              pet_breed: 'Aura',
+              pet_name: 'Aura',
+              pet_emoji: '🦊',
+              is_active: false,
+            }
+          ])
+          .select()
+          .single();
+
+        if (newPet && !newPetError) {
+          pets = [newPet as UserPet, ...pets];
+        } else if (newPetError) {
+          console.error('Error creating Aura pet placeholder:', newPetError);
+        }
+      } catch (e) {
+        console.error('Error ensuring Aura pet exists:', e);
+      }
+    }
+
+    return pets;
   } catch (error) {
     console.error('Failed to fetch user pets:', error);
     throw error;
