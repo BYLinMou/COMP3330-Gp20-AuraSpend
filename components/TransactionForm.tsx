@@ -186,19 +186,19 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         {/* Income/Expense Toggle */}
         <View style={styles.toggleContainer}>
           <TouchableOpacity
-            style={[styles.toggleButton, !isIncome && styles.toggleButtonActive, !isIncome && { backgroundColor: Colors.error }]}
-            onPress={() => setIsIncome(false)}
-          >
-            <Text style={[styles.toggleButtonText, !isIncome && styles.toggleButtonTextActive]}>
-              {t('home.expense') || 'Expense'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.toggleButton, isIncome && styles.toggleButtonActive, isIncome && { backgroundColor: Colors.success }]}
             onPress={() => setIsIncome(true)}
           >
             <Text style={[styles.toggleButtonText, isIncome && styles.toggleButtonTextActive]}>
               {t('home.income') || 'Income'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleButton, !isIncome && styles.toggleButtonActive, !isIncome && { backgroundColor: Colors.error }]}
+            onPress={() => setIsIncome(false)}
+          >
+            <Text style={[styles.toggleButtonText, !isIncome && styles.toggleButtonTextActive]}>
+              {t('home.expense') || 'Expense'}
             </Text>
           </TouchableOpacity>
         </View>

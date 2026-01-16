@@ -684,16 +684,8 @@ export default function AddScreen() {
               <MaterialCommunityIcons name="broom" size={24} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
-Income/Expense Toggle */}
+{/* Income/Expense Toggle */}
           <View style={styles.toggleContainer}>
-            <TouchableOpacity
-              style={[styles.toggleButton, !isIncome && styles.toggleButtonActive, !isIncome && { backgroundColor: Colors.error }]}
-              onPress={() => setIsIncome(false)}
-            >
-              <Text style={[styles.toggleButtonText, !isIncome && styles.toggleButtonTextActive]}>
-                {t('home.expense') || 'Expense'}
-              </Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.toggleButton, isIncome && styles.toggleButtonActive, isIncome && { backgroundColor: Colors.success }]}
               onPress={() => setIsIncome(true)}
@@ -702,9 +694,15 @@ Income/Expense Toggle */}
                 {t('home.income') || 'Income'}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleButton, !isIncome && styles.toggleButtonActive, !isIncome && { backgroundColor: Colors.error }]}
+              onPress={() => setIsIncome(false)}
+            >
+              <Text style={[styles.toggleButtonText, !isIncome && styles.toggleButtonTextActive]}>
+                {t('home.expense') || 'Expense'}
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          {/* 
           {/* Amount with Inline Currency Selector */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>
