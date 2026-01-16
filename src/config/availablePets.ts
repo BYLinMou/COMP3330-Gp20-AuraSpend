@@ -75,18 +75,18 @@ export const AVAILABLE_PETS: AvailablePet[] = [
       en: { breed: 'Goldfish', description: 'Swimming in savings!' },
       zh: { breed: '金鱼', description: '在存钱的海洋里游来游去！' },
     },
-//   },
-//   { // 新宠物 1（猫）
-//     id: 'cat_siamese',
-//     type: 'cat',
-//     breed: 'Siamese Cat',
-//     emoji: '🐱',
-//     xp_cost: 550,
-//     description: 'Curious about every coin.',
-//     translations: {
-//         en: { breed: 'Siamese Cat', description: 'Curious about every coin!' },
-//         zh: { breed: '暹罗猫', description: '好奇每一枚存下的硬币！' },
-//     },
+  },
+  { // 新宠物 1（猫）
+    id: 'cat_siamese',
+    type: 'cat',
+    breed: 'Siamese Cat',
+    emoji: '🐱',
+    xp_cost: 550,
+    description: 'Curious about every coin.',
+    translations: {
+        en: { breed: 'Siamese Cat', description: 'Curious about every coin!' },
+        zh: { breed: '暹罗猫', description: '好奇每一枚存下的硬币！' },
+    },
   },
   {  // 新宠物 2（狗）
     id: 'dog_corgi',
@@ -98,6 +98,18 @@ export const AVAILABLE_PETS: AvailablePet[] = [
     translations: {
         en: { breed: 'Corgi', description: 'Small steps, big gains!' },
         zh: { breed: '柯基', description: '小短腿，也能赚大收益！' },
+    },
+  },
+  {
+    id: 'unicorn_mythic',
+    type: 'unicorn',
+    breed: 'Unicorn',
+    emoji: '🦄',
+    xp_cost: 1200,
+    description: 'Magical savings companion!',
+    translations: {
+      en: { breed: 'Unicorn', description: 'Magical savings companion!' },
+      zh: { breed: '独角兽', description: '神奇的财富守护者！' },
     },
   },
   

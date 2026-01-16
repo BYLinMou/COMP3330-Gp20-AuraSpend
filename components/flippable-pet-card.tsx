@@ -561,7 +561,7 @@ export default function FlippablePetCard({
                 >
                   <View style={[styles.petAvatar, { width: petSize, height: petSize, borderRadius: petSize / 2 }]}>
                     <Text style={[styles.petEmoji, { fontSize: petSize * 0.53 }]}>
-                      {activePet?.pet_emoji || '🐶'}
+                      {activePet?.pet_emoji || '🦊'}
                     </Text>
                   </View>
                 </Animated.View>

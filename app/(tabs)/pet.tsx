@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -105,6 +105,7 @@ export default function PetScreen() {
   const [loading, setLoading] = useState(true);
   const [cooldownEndTime, setCooldownEndTime] = useState<number | null>(null);
   const [remainingTime, setRemainingTime] = useState(0);
+  const [isClaiming, setIsClaiming] = useState(false); // Prevent duplicate XP claims
   
   const [speechText, setSpeechText] = useState(PET_PHRASES.en[0]);
   const { currentLanguage } = useLanguage();
@@ -197,6 +198,9 @@ export default function PetScreen() {
   }
 
   const handleGainXP = async () => {
+    // Prevent duplicate presses while processing
+    if (isClaiming) return;
+
     // Check if still in cooldown
     if (cooldownEndTime && Date.now() < cooldownEndTime) {
       showToast({
@@ -206,6 +210,7 @@ export default function PetScreen() {
       return;
     }
 
+    setIsClaiming(true);
     try {
       const result = await addXP(100);
       
@@ -231,6 +236,9 @@ export default function PetScreen() {
     } catch (error: any) {
       console.error('Error adding XP:', error);
       showToast({ message: t('pet.failedToGainXP'), severity: 'error' });
+    } finally {
+      // Release local lock; cooldown will keep button disabled for remainingTime
+      setIsClaiming(false);
     }
   };
 
@@ -429,14 +437,18 @@ export default function PetScreen() {
             remainingTime > 0 && styles.timerCardDisabled
           ]} 
           onPress={handleGainXP} 
-          activeOpacity={remainingTime > 0 ? 1 : 0.7}
-          disabled={remainingTime > 0}
+          activeOpacity={remainingTime > 0 || isClaiming ? 1 : 0.7}
+          disabled={remainingTime > 0 || isClaiming}
         >
-          <Ionicons 
-            name={remainingTime > 0 ? "time-outline" : "gift-outline"} 
-            size={24} 
-            color={remainingTime > 0 ? Colors.gray600 : Colors.white} 
-          />
+          {isClaiming ? (
+            <ActivityIndicator size="small" color={Colors.white} />
+          ) : (
+            <Ionicons 
+              name={remainingTime > 0 ? "time-outline" : "gift-outline"} 
+              size={24} 
+              color={remainingTime > 0 ? Colors.gray600 : Colors.white} 
+            />
+          )}
           <Text style={[
             styles.timerText,
             remainingTime > 0 && styles.timerTextDisabled
@@ -446,11 +458,13 @@ export default function PetScreen() {
               : t('pet.tapToGainXP')}
           </Text>
         </TouchableOpacity>
+        {/* Subtext is redundant with the button state; hiding it for clarity.
         <Text style={styles.timerSubtext}>
           {remainingTime > 0 
             ? t('pet.comeBackMessage', { seconds: remainingTime })
             : t('pet.claimNow', { minutes: 10 })}
         </Text>
+        */}
 
         {/* Choose Your Pets Section */}
         <View style={styles.card}>

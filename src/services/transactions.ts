@@ -398,6 +398,19 @@ export interface TransactionUpdateInput {
   source?: 'manual' | 'ocr' | 'ai';
   note?: string | null;
   payment_method?: string | null;
+  currency?: string | null;
+}
+
+/**
+ * Extended interface for updating transaction with items
+ */
+export interface TransactionUpdateWithItemsInput extends TransactionUpdateInput {
+  items?: Array<{
+    id?: string;
+    name: string;
+    amount: number;
+    price: number;
+  }>;
 }
 
 /**
@@ -477,6 +490,80 @@ export async function updateTransaction(
     return data as Transaction;
   } catch (error) {
     console.error('Failed to update transaction:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update transaction along with its items (receipts)
+ * This function updates the transaction and handles item changes:
+ * - Existing items with id: will be updated
+ * - New items without id: will be created
+ * - Items not in the list: will be deleted
+ * 
+ * @param id - Transaction ID to update
+ * @param updates - Transaction fields to update, including items array
+ * @returns Updated transaction with category information
+ */
+export async function updateTransactionWithItems(
+  id: string,
+  updates: TransactionUpdateWithItemsInput
+) {
+  try {
+    const { items, ...transactionUpdates } = updates;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // First, update the transaction itself
+    const updatedTransaction = await updateTransaction(id, transactionUpdates);
+
+    // Handle items if provided
+    if (items !== undefined && Array.isArray(items)) {
+      // Dynamic import to avoid circular dependency
+      const itemsModule = await import('./items');
+      
+      // Get current items
+      const currentItems = await itemsModule.getItemsByTransaction(id);
+      const currentItemIds = new Set(currentItems.map(it => it.id));
+      const newItemIds = new Set<string>();
+
+      // Process each item: update existing or create new
+      for (const item of items) {
+        if (item.id && currentItemIds.has(item.id)) {
+          // Update existing item
+          await itemsModule.updateItem(item.id, {
+            item_name: item.name,
+            item_amount: item.amount,
+            item_price: item.price,
+          });
+          newItemIds.add(item.id);
+        } else if (!item.id) {
+          // Create new item
+          const created = await itemsModule.addReceiptItems(id, [{
+            name: item.name,
+            amount: item.amount,
+            price: item.price,
+          }]);
+          if (created.length > 0) {
+            newItemIds.add(created[0].id);
+          }
+        }
+      }
+
+      // Delete items that are no longer in the list
+      for (const itemId of currentItemIds) {
+        if (!newItemIds.has(itemId)) {
+          await itemsModule.deleteItem(itemId);
+        }
+      }
+    }
+
+    return updatedTransaction;
+  } catch (error) {
+    console.error('Failed to update transaction with items:', error);
     throw error;
   }
 }

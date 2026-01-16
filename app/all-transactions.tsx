@@ -17,7 +17,9 @@ import { Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/providers/AuthProvider';
+import { useLanguage } from '@/src/providers/LanguageProvider';
 import { Colors } from '@/constants/theme';
+import { EditTransactionModal } from '../components/EditTransactionModal';
 import {
   getAllTransactions,
   filterTransactions,
@@ -53,6 +55,7 @@ function getRelativeTime(dateString: string): string {
 
 export default function AllTransactionsScreen() {
   const { session } = useAuth();
+  const { t } = useLanguage();
   const { currencySymbol, currencyCode, convertToUserCurrency } = useCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
@@ -62,6 +65,8 @@ export default function AllTransactionsScreen() {
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [transactionItems, setTransactionItems] = useState<Record<string, ItemRow[]>>({});
   const [monthlyBudget, setMonthlyBudget] = useState<number>(0);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const blurAnimRef = React.useRef<{ [key: string]: Animated.Value }>({});
   
   // Advanced filters
@@ -298,6 +303,7 @@ export default function AllTransactionsScreen() {
       >
         <Animated.View style={[
           styles.transactionItem,
+          expandedTransactionId === item.id && styles.transactionItemExpanded,
           {
             opacity: blurAnim.interpolate({
               inputRange: [0, 1],
@@ -340,7 +346,10 @@ export default function AllTransactionsScreen() {
         </Animated.View>
 
         {expandedTransactionId === item.id && (
-          <View style={styles.transactionExpandedDetails}>
+          <View style={[styles.transactionExpandedDetails, styles.transactionItemExpanded]}>
+            {/* Divider Line */}
+            <View style={styles.expandedDivider} />
+
             {/* Category */}
             <View style={styles.expandedDetailRow}>
               <Text style={styles.expandedDetailLabel}>Category</Text>
@@ -441,35 +450,50 @@ export default function AllTransactionsScreen() {
               </View>
             )}
 
-            {/* Delete Button */}
-            <TouchableOpacity
-              style={styles.transactionDeleteButton}
-              onPress={() => {
-                Alert.alert(
-                  'Delete Transaction',
-                  'Are you sure you want to delete this transaction?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Delete',
-                      style: 'destructive',
-                      onPress: async () => {
-                        try {
-                          await deleteTransaction(item.id);
-                          setExpandedTransactionId(null);
-                          fetchTransactions();
-                        } catch (error) {
-                          Alert.alert('Error', 'Failed to delete transaction');
+            {/* Action Buttons */}
+            <View style={styles.transactionActionButtons}>
+              {/* Edit Button */}
+              <TouchableOpacity
+                style={styles.transactionEditButton}
+                onPress={() => {
+                  setEditingTransaction(item);
+                  setShowEditModal(true);
+                }}
+              >
+                <Ionicons name="pencil-outline" size={16} color={Colors.primary} />
+                <Text style={styles.transactionEditButtonText}>{t('home.edit')}</Text>
+              </TouchableOpacity>
+
+              {/* Delete Button */}
+              <TouchableOpacity
+                style={styles.transactionDeleteButton}
+                onPress={() => {
+                  Alert.alert(
+                    t('home.deleteTransaction'),
+                    t('home.deleteTransactionConfirm'),
+                    [
+                      { text: t('home.cancel'), style: 'cancel' },
+                      {
+                        text: t('home.delete'),
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await deleteTransaction(item.id);
+                            setExpandedTransactionId(null);
+                            fetchTransactions();
+                          } catch (error) {
+                            Alert.alert('Error', 'Failed to delete transaction');
+                          }
                         }
                       }
-                    }
-                  ]
-                );
-              }}
-            >
-              <Ionicons name="trash-outline" size={16} color={Colors.error} />
-              <Text style={styles.transactionDeleteButtonText}>Delete</Text>
-            </TouchableOpacity>
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                <Text style={styles.transactionDeleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </Pressable>
@@ -881,6 +905,19 @@ export default function AllTransactionsScreen() {
         </Modal>
         {/* Floating Chat Button */}
         <FloatingChatButton />
+
+        {/* Edit Transaction Modal */}
+        <EditTransactionModal
+          visible={showEditModal}
+          transaction={editingTransaction}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingTransaction(null);
+          }}
+          onSuccess={() => {
+            fetchTransactions();
+          }}
+        />
       </SafeAreaView>
     </>
   );
@@ -991,6 +1028,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.gray100,
   },
+  transactionItemExpanded: {
+    backgroundColor: Colors.gray100,
+    paddingHorizontal: 12,
+    marginHorizontal: -12,
+  },
   transactionLeft: {
     flex: 1,
   },
@@ -1024,10 +1066,15 @@ const styles = StyleSheet.create({
   },
   transactionExpandedDetails: {
     paddingHorizontal: 0,
-    paddingTop: 12,
+    paddingTop: 2,
     paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: Colors.gray100,
+  },
+  expandedDivider: {
+    height: 1,
+    backgroundColor: Colors.gray200,
+    marginBottom: 4,
   },
   expandedDetailRow: {
     flexDirection: 'row',
@@ -1125,6 +1172,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.primary,
   },
+  transactionActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  transactionEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    flex: 1,
+  },
+  transactionEditButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
   transactionDeleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1133,7 +1200,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 0, 0, 0.1)',
     borderRadius: 8,
     paddingVertical: 10,
-    marginTop: 8,
+    flex: 1,
   },
   transactionDeleteButtonText: {
     fontSize: 13,
