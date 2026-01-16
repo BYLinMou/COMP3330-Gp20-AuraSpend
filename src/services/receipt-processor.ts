@@ -34,6 +34,7 @@ export interface ReceiptData {
   description?: string;    // 描述
   category?: string;       // 分类建议
   isNewCategory?: boolean; // 是否是新分类建议（不在现有分类列表中）
+  is_income?: boolean;     // 是否是收入 (true = 收入, false/undefined = 支出)
   currency?: string;       // 货币代码 (USD, HKD, CNY, etc.)
   payment_method?: string | null; // 支付方式 (Cash, VISA, Apple Pay, etc.)
 }
@@ -281,6 +282,7 @@ async function analyzeReceiptWithMultimodalLLM(
   "description": "Brief purchase summary",
   "category": "category name",
   "isNewCategory": false,
+  "is_income": false,
   "payment_method": "VISA"
 }
 
@@ -295,6 +297,7 @@ async function analyzeReceiptWithMultimodalLLM(
 - date (required, string): ISO format YYYY-MM-DDTHH:MM. Use 24-hour time. If missing, use 12:00.
 - category (required, string): Choose from list below, or suggest new one
   Available: ${categoryList}
+- is_income (required, boolean): true if this is an INCOME/REFUND/DEPOSIT (money received). false if this is an EXPENSE/PAYMENT (money spent). Default to false.
 - isNewCategory (required, boolean): true if you suggested new category, false otherwise
 - items (required, array): Individual line items as objects with EXACT structure: 
   {name: "item name", amount: quantity (number), price: unit price (number)}
@@ -533,6 +536,7 @@ function sanitizeReceiptData(data: any, existingCategories: string[]): ReceiptDa
     items: items,
     description: String(data.description || '').trim(),
     category: category,
+    is_income: data.is_income === true,
     isNewCategory: isNewCategory,
     currency: currency,
     payment_method: paymentMethod,

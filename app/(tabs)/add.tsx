@@ -33,6 +33,7 @@ export default function AddScreen() {
   const { currencyCode: primaryCurrencyCode } = useCurrency();
   const [inputMethod, setInputMethod] = useState<InputMethod>('receipt');
   const [amount, setAmount] = useState('');
+  const [isIncome, setIsIncome] = useState(false);
   const [itemlist, setItemlist] = useState<ReceiptItem[]>([]);
   const [categoryId, setCategoryId] = useState('');
   const [merchant, setMerchant] = useState('');
@@ -291,6 +292,9 @@ export default function AddScreen() {
       // Auto-fill the form
       setMerchant(receiptData.merchant);
       setAmount(receiptData.amount.toString());
+      if (receiptData.is_income !== undefined) {
+        setIsIncome(receiptData.is_income);
+      }
       
       // Set currency (if detected by AI)
       if (receiptData.currency) {
@@ -388,6 +392,7 @@ export default function AddScreen() {
 
     const clearForm = () => {
       setAmount('');
+      setIsIncome(false);
       setItemlist([]);
       setCategoryId('');
       setMerchant('');
@@ -445,8 +450,8 @@ export default function AddScreen() {
     try {
       setSubmitting(true);
 
-      // Convert amount to negative for expenses
-      const numericAmount = -Math.abs(parseFloat(amount));
+      // Convert amount based on income/expense toggle
+      const numericAmount = isIncome ? Math.abs(parseFloat(amount)) : -Math.abs(parseFloat(amount));
 
       // Determine source based on input method
       let source: 'manual' | 'ocr' | 'ai' = 'manual';
@@ -500,6 +505,7 @@ export default function AddScreen() {
           onPress: () => {
             // Reset form
             setAmount('');
+            setIsIncome(false);
             setItemlist([]);
             setMerchant('');
             setNotes('');
@@ -678,7 +684,27 @@ export default function AddScreen() {
               <MaterialCommunityIcons name="broom" size={24} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
+Income/Expense Toggle */}
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity
+              style={[styles.toggleButton, !isIncome && styles.toggleButtonActive, !isIncome && { backgroundColor: Colors.error }]}
+              onPress={() => setIsIncome(false)}
+            >
+              <Text style={[styles.toggleButtonText, !isIncome && styles.toggleButtonTextActive]}>
+                {t('home.expense') || 'Expense'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleButton, isIncome && styles.toggleButtonActive, isIncome && { backgroundColor: Colors.success }]}
+              onPress={() => setIsIncome(true)}
+            >
+              <Text style={[styles.toggleButtonText, isIncome && styles.toggleButtonTextActive]}>
+                {t('home.income') || 'Income'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
+          {/* 
           {/* Amount with Inline Currency Selector */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>
@@ -1422,6 +1448,30 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     minWidth: 120,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    backgroundColor: Colors.gray100,
+    borderRadius: 8,
+    padding: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    // backgroundColor set inline for specific colors
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  toggleButtonTextActive: {
+    color: Colors.white,
   },
   uploadButtonDisabled: {
     opacity: 0.5,

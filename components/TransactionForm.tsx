@@ -23,6 +23,7 @@ import { getCurrencies, type Currency } from '../src/services/currencies';
 import { getPaymentMethods, type PaymentMethod } from '../src/services/payment-methods';
 
 export interface TransactionFormValues {
+  is_income?: boolean;
   amount: number;
   occurred_at: Date;
   merchant: string | null;
@@ -58,7 +59,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   loading = false,
 }) => {
   const { t } = useLanguage();
-  const [amount, setAmount] = useState(initialValues?.amount?.toString() || '');
+  const [isIncome, setIsIncome] = useState(
+    initialValues?.is_income ?? (initialValues?.amount ? initialValues.amount > 0 : false)
+  );
+  const [amount, setAmount] = useState(initialValues?.amount ? Math.abs(initialValues.amount).toString() : '');
   const [occurredAt, setOccurredAt] = useState(initialValues?.occurred_at || new Date());
   const [merchant, setMerchant] = useState(initialValues?.merchant || '');
   const [categoryId, setCategoryId] = useState(initialValues?.category_id || '');
@@ -141,8 +145,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       // }
 
       setSubmitting(true);
+      const finalAmount = isIncome ? Math.abs(parsedAmount) : -Math.abs(parsedAmount);
+      
       const values: TransactionFormValues = {
-        amount: parsedAmount,
+        amount: finalAmount,
+        is_income: isIncome,
         occurred_at: occurredAt,
         merchant: merchant.trim(),
         category_id: categoryId || null,
@@ -176,6 +183,26 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {/* Transaction Details Card */}
       <View style={styles.card}>
+        {/* Income/Expense Toggle */}
+        <View style={styles.toggleContainer}>
+          <TouchableOpacity
+            style={[styles.toggleButton, !isIncome && styles.toggleButtonActive, !isIncome && { backgroundColor: Colors.error }]}
+            onPress={() => setIsIncome(false)}
+          >
+            <Text style={[styles.toggleButtonText, !isIncome && styles.toggleButtonTextActive]}>
+              {t('home.expense') || 'Expense'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleButton, isIncome && styles.toggleButtonActive, isIncome && { backgroundColor: Colors.success }]}
+            onPress={() => setIsIncome(true)}
+          >
+            <Text style={[styles.toggleButtonText, isIncome && styles.toggleButtonTextActive]}>
+              {t('home.income') || 'Income'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Amount with Inline Currency Selector */}
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>
@@ -658,6 +685,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    backgroundColor: Colors.gray100,
+    borderRadius: 8,
+    padding: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    // backgroundColor set inline for specific colors
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  toggleButtonTextActive: {
+    color: Colors.white,
   },
   contentContainer: {
     padding: 16,

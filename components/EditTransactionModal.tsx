@@ -60,10 +60,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         price: item.price,
       }));
 
-      // Preserve the original sign (positive for income, negative for expense)
-      // If original was negative (expense), keep it negative
-      // If original was positive (income), keep it positive
-      const finalAmount = originalAmount >= 0 ? Math.abs(values.amount) : -Math.abs(values.amount);
+      // Amount is already signed in TransactionForm based on user selection
+      const finalAmount = values.amount;
 
       await updateTransactionWithItems(transaction.id, {
         amount: finalAmount,
@@ -90,7 +88,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   }
 
   const initialValues: Partial<TransactionFormValues> = {
-    amount: Math.abs(transaction.amount),
+    amount: transaction.amount,
+    is_income: transaction.amount >= 0,
     occurred_at: new Date(transaction.occurred_at),
     merchant: transaction.merchant,
     category_id: transaction.category_id,
