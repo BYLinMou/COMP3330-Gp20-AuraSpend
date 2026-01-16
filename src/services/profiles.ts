@@ -52,11 +52,15 @@ export type ProfileUpdateInput = {
  * Create a profile for a new user
  * This should typically be called after user signs up
  */
-export async function createProfile(updates?: ProfileUpdateInput): Promise<Profile> {
+export async function createProfile(updates?: ProfileUpdateInput, userId?: string): Promise<Profile> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    let id = userId;
+    if (!id) {
+      const { data: { user } } = await supabase.auth.getUser();
+      id = user?.id;
+    }
     
-    if (!user) {
+    if (!id) {
       throw new Error('User not authenticated');
     }
 
@@ -64,7 +68,7 @@ export async function createProfile(updates?: ProfileUpdateInput): Promise<Profi
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', id)
       .single();
 
     if (existingProfile) {
@@ -76,7 +80,7 @@ export async function createProfile(updates?: ProfileUpdateInput): Promise<Profi
     }
 
     // Only include provided fields to avoid overwriting DB defaults
-    const payload: Record<string, any> = { id: user.id };
+    const payload: Record<string, any> = { id };
     if (updates) {
       if (updates.username !== undefined) payload.username = updates.username;
       if (updates.primary_currency !== undefined) payload.primary_currency = updates.primary_currency;
@@ -90,6 +94,18 @@ export async function createProfile(updates?: ProfileUpdateInput): Promise<Profi
       .single();
 
     if (error) {
+      // Handle duplicate key error (race condition or previous failure)
+      if (error.code === '23505' || error.message?.includes('duplicate key')) {
+        const { data: conflictProfile, error: conflictError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (!conflictError && conflictProfile) {
+          return conflictProfile as Profile;
+        }
+      }
       console.error('Error creating profile:', error);
       throw error;
     }
@@ -146,16 +162,22 @@ export async function updateProfile(updates: ProfileUpdateInput): Promise<Profil
  * Initialize a complete user account with profile, default categories, pet, etc.
  * Call this after successful sign up
  */
-export async function initializeUserAccount(options?: ProfileUpdateInput) {
+export async function initializeUserAccount(options?: ProfileUpdateInput, userId?: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    let id = userId;
+    if (!id) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      id = authUser?.id;
+    }
     
-    if (!user) {
+    if (!id) {
       throw new Error('User not authenticated');
     }
 
+    const user = { id };
+
     // Create profile (will skip if already exists)
-    const profile = await createProfile(options);
+    const profile = await createProfile(options, user.id);
 
     // Check if categories already exist
     const { data: existingCategories } = await supabase

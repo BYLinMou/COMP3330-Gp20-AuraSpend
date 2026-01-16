@@ -50,7 +50,7 @@ export default function SignUp() {
       if (data.user) {
         try {
           // Pass the user ID to ensure it's used even if session isn't fully initialized
-          await initializeUserAccount(data.user.id);
+          await initializeUserAccount(undefined, data.user.id);
           console.log('✅ User account initialized successfully');
         } catch (initError) {
           console.error('❌ Error initializing user account:', initError);
