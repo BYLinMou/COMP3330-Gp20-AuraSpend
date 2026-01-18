@@ -1,5 +1,7 @@
 # AuraSpend - Smart Budgeting Companion
 
+> **Note**: This repository is the official repo for the group project. This codebase is open-sourced up to version v0.0.11 with GPL-3.0 license. Subsequent development has been taken over by a team outside of the original group project, but APK updates will continue to be maintained on the release page. Code after v0.0.11 is not open source.
+
 **HKU COMP3330 (25-26 Sem 1) - Group 20**
 
 AuraSpend is a gamified, AI-powered expense tracking application built with React Native (Expo) and Supabase. It combines financial management with a digital pet companion to encourage healthy spending habits.
